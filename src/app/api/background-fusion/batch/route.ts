@@ -1,0 +1,234 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { ProductRefineApiClient } from '@/lib/api-client';
+import { jobRunner, JobQueue } from '@/lib/job-queue';
+import { config } from '@/lib/config';
+import { v4 as uuidv4 } from 'uuid';
+import { writeFile, mkdir, readFile } from 'fs/promises';
+import path from 'path';
+import fs from 'fs';
+
+// Job processor for batch background fusion
+class BatchBackgroundFusionProcessor {
+  async process(jobData: any) {
+    const { sourceImageBuffers, targetImageBuffer, prompt } = jobData.payload;
+    const client = new ProductRefineApiClient(config.apiKey, config.baseUrl);
+    
+    const results = [];
+    const total = sourceImageBuffers.length;
+    
+    for (let i = 0; i < sourceImageBuffers.length; i++) {
+      try {
+        // 更新进度
+        const progress = Math.round(((i + 1) / total) * 100);
+        JobQueue.updateJob(jobData.id, { progress });
+
+        // 转换Buffer为base64 data URL
+        const sourceImageBase64 = `data:image/png;base64,${sourceImageBuffers[i].toString('base64')}`;
+        const targetImageBase64 = `data:image/png;base64,${targetImageBuffer.toString('base64')}`;
+
+        const response = await client.replaceFoodInBowl({
+          sourceImage: sourceImageBase64,
+          targetImage: targetImageBase64,
+          prompt,
+        });
+
+        if (response.data && response.data.length > 0) {
+          const imageData = response.data[0];
+
+          // 检查不同的数据格式
+          let base64Data: string;
+          if (imageData.b64_json) {
+            base64Data = imageData.b64_json;
+          } else if (imageData.url && imageData.url.startsWith('data:')) {
+            base64Data = imageData.url.split(',')[1];
+          } else {
+            throw new Error('No valid image data found in response');
+          }
+
+          // 保存生成的图片
+          const imageBuffer = Buffer.from(base64Data, 'base64');
+          const filename = `background-fusion-batch-${uuidv4()}.png`;
+          const outputDir = path.join(process.cwd(), 'public', 'generated');
+
+          // 确保输出目录存在
+          await mkdir(outputDir, { recursive: true });
+
+          const outputPath = path.join(outputDir, filename);
+          await writeFile(outputPath, imageBuffer);
+
+          results.push({
+            sourceImageIndex: i,
+            status: 'success',
+            imageUrl: `/generated/${filename}`,
+            width: 1200,
+            height: 900
+          });
+        } else {
+          results.push({
+            sourceImageIndex: i,
+            status: 'failed',
+            error: 'No fusion image generated',
+          });
+        }
+      } catch (error) {
+        console.error(`Background fusion failed for image ${i}:`, error);
+        results.push({
+          sourceImageIndex: i,
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+
+    return results;
+  }
+}
+
+// 注册处理器
+jobRunner.registerProcessor('batch-background-fusion', new BatchBackgroundFusionProcessor());
+
+export async function POST(request: NextRequest) {
+  try {
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    console.log('Batch background fusion request from:', userAgent);
+
+    const formData = await request.formData();
+    const sourceImages = formData.getAll('sourceImages') as File[];
+    const targetImage = formData.get('targetImage') as File;
+    const targetImageUrl = formData.get('targetImageUrl') as string;
+
+    if (!sourceImages || sourceImages.length === 0) {
+      return NextResponse.json(
+        { error: '请上传至少一张源图片' },
+        { status: 400 }
+      );
+    }
+
+    if (sourceImages.length > 10) {
+      return NextResponse.json(
+        { error: '最多只能上传10张源图片' },
+        { status: 400 }
+      );
+    }
+
+    if (!targetImage && !targetImageUrl) {
+      return NextResponse.json(
+        { error: '请上传目标图片或选择模板' },
+        { status: 400 }
+      );
+    }
+
+    // 处理源图片
+    const sourceImageBuffers = [];
+    for (const sourceImage of sourceImages) {
+      const buffer = Buffer.from(await sourceImage.arrayBuffer());
+      sourceImageBuffers.push(buffer);
+    }
+
+    // 处理目标图片
+    let targetImageBuffer: Buffer;
+    let targetImageType = 'image/jpeg';
+
+    if (targetImage) {
+      // 使用上传的文件
+      targetImageBuffer = Buffer.from(await targetImage.arrayBuffer());
+      targetImageType = targetImage.type;
+    } else {
+      // 使用模板URL - 从文件系统直接读取
+      try {
+        // 从URL中提取文件名
+        const urlParts = targetImageUrl.split('/');
+        const filename = decodeURIComponent(urlParts[urlParts.length - 1]);
+        const templatePath = path.join(process.cwd(), 'shiwutihuangongju', filename);
+        
+        // 检查文件是否存在
+        if (!fs.existsSync(templatePath)) {
+          throw new Error(`Template file not found: ${filename}`);
+        }
+        
+        // 直接从文件系统读取
+        targetImageBuffer = await readFile(templatePath);
+
+        // 从文件名推断文件类型
+        const filenameLower = filename.toLowerCase();
+        if (filenameLower.includes('.png')) {
+          targetImageType = 'image/png';
+        } else if (filenameLower.includes('.webp')) {
+          targetImageType = 'image/webp';
+        } else {
+          targetImageType = 'image/jpeg';
+        }
+      } catch (error) {
+        console.error('Failed to load template image:', error);
+        return NextResponse.json(
+          { error: '无法加载模板图片' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 优化的背景融合提示词
+    const prompt = `Create a stunning food background fusion by seamlessly integrating the food from the source image into the target background scene. Focus on:
+
+VISUAL APPEAL & APPETITE ENHANCEMENT:
+- Enhance food colors to be vibrant, rich, and appetizing with perfect saturation
+- Add natural glossy highlights and textures that make food look fresh and irresistibly delicious
+- Optimize contrast and lighting to create mouth-watering visual impact
+- Ensure food appears perfectly cooked, fresh, and at its most appealing state
+- Make the food look so appetizing that viewers immediately want to taste it
+
+PERFECT BACKGROUND INTEGRATION:
+- Seamlessly blend the food into the target background environment with flawless transitions
+- Match lighting conditions, shadows, and reflections perfectly throughout the scene
+- Maintain consistent perspective, scale, and depth of field for natural composition
+- Create realistic interactions between food and background elements
+- Ensure the food appears naturally placed within the scene, not artificially imposed
+
+COMMERCIAL-GRADE PRODUCT REFINEMENT:
+- Perform professional product retouching to remove all imperfections, scratches, and blemishes
+- Enhance material textures with strong contrast between light and shadow areas
+- Create dramatic three-dimensional lighting effects with pronounced depth and volume
+- Strengthen material definition with enhanced highlights and deep shadows for premium feel
+- Increase overall brightness and luminosity while maintaining natural color balance
+- Apply commercial-grade finishing that elevates the product's luxury and premium appearance
+
+TECHNICAL EXCELLENCE:
+- Achieve flawless edge blending with absolutely no visible seams or artifacts
+- Match color temperature and ambient lighting consistently across the entire image
+- Add appropriate shadows, highlights, and environmental reflections for realism
+- Maintain photorealistic quality with commercial-grade professional finish
+- Ensure perfect color harmony between food and background elements
+
+FINAL RESULT REQUIREMENTS:
+- Professional food photography quality suitable for commercial use
+- Irresistibly appetizing appearance that triggers immediate food cravings
+- Natural and believable scene composition that looks authentically photographed
+- Maximum visual impact with enhanced food appeal and perfect background integration
+- Ready for marketing and advertising with stunning visual presentation
+
+Generate a single, perfectly fused image that combines the best qualities of both source and target images while making the food look absolutely delicious and naturally integrated into the background scene.`;
+
+    // 创建任务
+    const job = JobQueue.createJob('batch-background-fusion', {
+      sourceImageBuffers,
+      targetImageBuffer,
+      prompt,
+    });
+
+    // 启动任务处理
+    jobRunner.runJob(job.id);
+
+    return NextResponse.json({
+      jobId: job.id,
+      message: '批量背景融合任务已创建',
+      totalImages: sourceImages.length,
+    });
+
+  } catch (error) {
+    console.error('Batch background fusion error:', error);
+    return NextResponse.json(
+      { error: '批量背景融合失败' },
+      { status: 500 }
+    );
+  }
+}

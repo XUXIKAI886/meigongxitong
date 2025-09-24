@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Logo Upload</title>
+</head>
+<body>
+    <h1>Test Logo Upload</h1>
+    <p>This is a simple test page to create a logo image for testing.</p>
+    
+    <canvas id="logoCanvas" width="200" height="200" style="border: 1px solid #000;"></canvas>
+    
+    <script>
+        // Create a simple logo on canvas
+        const canvas = document.getElementById('logoCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Background
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, 200, 200);
+        
+        // Circle
+        ctx.fillStyle = '#ff6b6b';
+        ctx.beginPath();
+        ctx.arc(100, 80, 40, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Text
+        ctx.fillStyle = '#333';
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('美味小厨', 100, 140);
+        
+        // Convert to blob and download
+        canvas.toBlob(function(blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'test-logo.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    </script>
+</body>
+</html>
