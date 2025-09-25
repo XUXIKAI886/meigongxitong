@@ -235,7 +235,7 @@ export default function FoodReplacementPage() {
 
   const pollJobStatus = async (jobId: string) => {
     let pollAttempts = 0;
-    const maxAttempts = 150; // 5分钟最大轮询时间
+    const maxAttempts = 300; // 10分钟最大轮询时间（每2秒一次）
 
     const poll = async () => {
       if (shouldStopPolling) {
@@ -256,13 +256,15 @@ export default function FoodReplacementPage() {
         
         if (response.status === 404) {
           console.log(`Job ${jobId} not found (attempt ${pollAttempts})`);
-          if (pollAttempts > 10) {
+          // 增加容错性：更多尝试次数，防止作业被过早清理导致的404
+          if (pollAttempts > 30) { // 从10增加到30次
             console.log('Job may have completed and been cleaned up, stopping polling');
             setIsProcessing(false);
             setShouldStopPolling(true);
             return;
           }
-          setTimeout(poll, 2000);
+          // 404时等待更长时间再重试
+          setTimeout(poll, 3000); // 从2秒增加到3秒
           return;
         }
 
@@ -1026,11 +1028,11 @@ export default function FoodReplacementPage() {
                               ✓
                             </Badge>
                             {/* 悬停时显示下载按钮 */}
-                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-md flex items-center justify-center">
+                            <div className="absolute inset-0 bg-transparent group-hover:bg-black group-hover:bg-opacity-30 transition-all duration-200 rounded-md flex items-center justify-center pointer-events-none">
                               <Button
                                 onClick={() => downloadImage(result.imageUrl!, `food-replacement-${index + 1}.png`)}
                                 size="sm"
-                                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 scale-75"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 scale-75 pointer-events-auto"
                               >
                                 <DownloadIcon className="w-3 h-3" />
                               </Button>
@@ -1062,6 +1064,7 @@ export default function FoodReplacementPage() {
                         </Badge>
                       </div>
 
+                      {/* 批量模式下不显示当前任务结果，因为已经保存到历史结果中 */}
                     </div>
                   ) : (
                     // 单张模式结果显示

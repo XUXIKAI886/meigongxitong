@@ -37,12 +37,33 @@ class FoodReplacementProcessor {
     const sourceImageBase64 = `data:image/png;base64,${sourceBuffer.toString('base64')}`;
     const targetImageBase64 = `data:image/png;base64,${targetBuffer.toString('base64')}`;
 
-    // 调用API进行食物替换
-    const response = await apiClient.replaceFoodInBowl({
-      sourceImage: sourceImageBase64,
-      targetImage: targetImageBase64,
-      prompt: prompt
-    });
+    // 调用API进行食物替换 - 添加重试机制
+    let response;
+    let lastError;
+    for (let retry = 0; retry < 3; retry++) {
+      try {
+        console.log(`Food Replacement Single - Attempt ${retry + 1}/3`);
+        response = await apiClient.replaceFoodInBowl({
+          sourceImage: sourceImageBase64,
+          targetImage: targetImageBase64,
+          prompt: prompt
+        });
+        console.log(`Food Replacement Single - Successfully processed on attempt ${retry + 1}`);
+        break; // 成功则跳出重试循环
+      } catch (error) {
+        lastError = error;
+        console.log(`Food Replacement Single - Attempt ${retry + 1} failed:`, error.message);
+        if (retry < 2) {
+          console.log(`Food Replacement Single - Waiting 2 seconds before retry ${retry + 2}`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+    }
+
+    if (!response) {
+      console.log(`Food Replacement Single - All 3 attempts failed, final error:`, lastError.message);
+      throw lastError;
+    }
 
     console.log('Food replacement response:', {
       hasData: !!response.data,
@@ -160,18 +181,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 食物替换专用提示词
-    const prompt = `Please perform precise food replacement between two images:
-1. ONLY extract the FOOD CONTENTS from inside the bowl in the first image (source image)
-2. DO NOT extract or copy the bowl itself, plate, or any container from the source image
-3. Place ONLY the extracted food contents into the existing bowl in the second image (target image)
-4. Keep the target image's bowl, plate, and background completely unchanged
-5. Adjust the food's size, angle, and lighting to naturally fit inside the target bowl
-6. Ensure realistic shadows, reflections, and perspective matching for the food only
-7. Blend the food edges seamlessly with the target bowl's interior
-8. The final result should show the target bowl filled with the source food, but the bowl itself remains the original target bowl
-9. Maintain the food's original texture and color while adapting to the target image's lighting conditions
-10. Return the final composite image with natural food placement`;
+    // 食物替换专用提示词 - 强化版，严格区分不同食物类型的容器处理规则
+    const prompt = `Please perform precise and COMPLETE food replacement between two images with STRICT CONTAINER RULES:
+
+CRITICAL FOOD EXTRACTION REQUIREMENTS BY TYPE:
+
+1. FOR RICE BOWLS (盖浇饭) ONLY:
+   - Extract food + bowl together (this is the ONLY exception)
+   - Include the rice, toppings, and the serving bowl as one complete unit
+   - This applies ONLY to rice bowls with toppings (盖浇饭)
+
+2. FOR ALL OTHER FOODS - ABSOLUTELY NO CONTAINERS:
+   - Noodles/Pasta: Extract ONLY the noodles, sauce, and ingredients - NO bowls, NO plates
+   - Soup: Extract ONLY the soup liquid and ingredients - NO bowls, NO containers
+   - Stir-fry dishes: Extract ONLY the food - NO plates, NO containers
+   - Salads: Extract ONLY the vegetables and ingredients - NO plates, NO bowls
+   - Meat dishes: Extract ONLY the meat and sauce - NO plates, NO containers
+   - Any liquid foods: Extract ONLY the liquid and solid ingredients - NO containers
+
+3. STRICT CONTAINER EXCLUSION (except rice bowls):
+   - ABSOLUTELY EXCLUDE: bowls, plates, cups, boxes, containers, packaging
+   - ABSOLUTELY EXCLUDE: chopsticks, spoons, forks, utensils, napkins
+   - ABSOLUTELY EXCLUDE: background, tables, surfaces, decorative items
+   - ONLY extract the pure food contents in their natural form
+
+4. SPECIAL HANDLING FOR LIQUID/SEMI-LIQUID FOODS:
+   - For noodle soups: Extract noodles + broth + ingredients as floating/suspended elements
+   - For saucy dishes: Extract food + sauce as naturally flowing/coating elements
+   - For soups: Extract liquid + ingredients in natural liquid form
+   - Make these foods appear naturally placed in the target bowl without source containers
+
+5. PLACEMENT IN TARGET BOWL:
+   - Place extracted food contents naturally in the target bowl
+   - For liquid foods: make them appear as if poured into the target bowl
+   - Maintain natural food physics and appearance
+   - Ensure realistic volume and proportions
+
+6. VISUAL QUALITY & FOOD ENHANCEMENT:
+   - ENHANCE food colors to make them vibrant and appetizing
+   - BRIGHTEN overall food appearance while maintaining natural look
+   - INCREASE saturation and contrast to make food more appealing
+   - ADD subtle gloss/sheen to wet foods (soups, sauces, glazed items)
+   - MAKE vegetables appear fresh and crisp with vivid colors
+   - ENHANCE meat colors to look juicy and well-cooked
+   - BRIGHTEN rice to appear fluffy and fresh (not dull or gray)
+   - IMPROVE overall food presentation to restaurant-quality standards
+   - Adjust lighting, shadows, and reflections to match target environment
+   - Blend edges seamlessly with target bowl interior
+   - Create natural, realistic food placement with professional visual appeal
+
+REMEMBER: Only rice bowls (盖浇饭) can include containers. ALL other foods must be extracted WITHOUT any containers, bowls, plates, or utensils.
+
+Return the final image with properly extracted food contents placed naturally in the target bowl.`;
 
     // 转换源图片为Buffer
     const sourceImageBuffer = Buffer.from(await sourceImage.arrayBuffer());

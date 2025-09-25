@@ -334,6 +334,12 @@ export class ProductImageApiClient {
             mimeType: mimeType
           });
 
+          // Validate base64 data
+          if (!base64Data || base64Data.length === 0) {
+            console.warn('Empty base64 data found, skipping...');
+            continue;
+          }
+
           // Create a data URL that can be processed by our existing code
           const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
@@ -352,16 +358,28 @@ export class ProductImageApiClient {
               base64Length: base64Data?.length
             });
 
-            imageData.push({
-              url: dataUrl,
-              b64_json: base64Data
-            });
+            if (base64Data && base64Data.length > 0) {
+              imageData.push({
+                url: dataUrl,
+                b64_json: base64Data
+              });
+            }
           }
+        } else if (part.text) {
+          // Log text parts for debugging
+          console.log('Text part found:', part.text.substring(0, 100) + '...');
         }
       }
     }
 
     console.log('Converted image data count:', imageData.length);
+
+    // Additional validation
+    if (imageData.length === 0) {
+      console.error('No image data found in Gemini response');
+      console.error('Full response structure:', JSON.stringify(geminiResponse, null, 2));
+    }
+
     return {
       data: imageData
     };
@@ -378,7 +396,7 @@ export class ProductRefineApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
-      timeout: 60000, // 60 seconds
+      timeout: 120000, // 120 seconds for large image processing
     });
   }
 
@@ -450,64 +468,90 @@ export class ProductRefineApiClient {
     }
   }
 
-  private convertGeminiResponse(geminiResponse: any) {
-    console.log('Converting Gemini Refine Response...');
-    console.log('Candidates:', geminiResponse.candidates?.length || 0);
+  // 多图融合专用方法 - 支持多张源图片输入
+  async fusionMultipleImages(params: {
+    sourceImages: string[]; // base64 data URL format array - 包含要融合的多张图片
+    targetImage: string; // base64 data URL format - 包含目标背景的图片
+    prompt: string;
+  }) {
+    // Extract base64 data from target image
+    const targetBase64 = params.targetImage.split(',')[1];
+    const targetMimeType = params.targetImage.match(/data:([^;]+);/)?.[1] || 'image/png';
 
-    const candidates = geminiResponse.candidates || [];
-    const imageData = [];
+    // Build parts array with prompt and all images
+    const parts = [
+      { text: params.prompt }
+    ];
 
-    for (const candidate of candidates) {
-      console.log('Processing candidate:', JSON.stringify(candidate, null, 2));
-      const parts = candidate.content?.parts || [];
-      console.log('Parts count:', parts.length);
+    // Add all source images
+    params.sourceImages.forEach((sourceImage, index) => {
+      const sourceBase64 = sourceImage.split(',')[1];
+      const sourceMimeType = sourceImage.match(/data:([^;]+);/)?.[1] || 'image/png';
 
-      for (const part of parts) {
-        console.log('Processing part:', JSON.stringify(part, null, 2));
+      parts.push({
+        inline_data: {
+          mime_type: sourceMimeType,
+          data: sourceBase64
+        }
+      });
+    });
 
-        // Check for different possible image data formats
-        if (part.inline_data || part.inlineData) {
-          // Handle both possible naming conventions
-          const inlineData = part.inline_data || part.inlineData;
-          const base64Data = inlineData.data;
-          const mimeType = inlineData.mime_type || inlineData.mimeType;
+    // Add target image
+    parts.push({
+      inline_data: {
+        mime_type: targetMimeType,
+        data: targetBase64
+      }
+    });
 
-          console.log('Found image data:', {
-            base64Length: base64Data?.length,
-            mimeType: mimeType
-          });
-
-          // Create a data URL that can be processed by our existing code
-          const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
-          imageData.push({
-            url: dataUrl, // This will be processed by our existing download logic
-            b64_json: base64Data // Also provide raw base64 for direct use
-          });
-        } else if (part.text && part.text.includes('data:image')) {
-          // Sometimes the image might be embedded in text as a data URL
-          const dataUrlMatch = part.text.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
-          if (dataUrlMatch) {
-            const dataUrl = dataUrlMatch[0];
-            const base64Data = dataUrl.split(',')[1];
-
-            console.log('Found image in text:', {
-              base64Length: base64Data?.length
-            });
-
-            imageData.push({
-              url: dataUrl,
-              b64_json: base64Data
-            });
-          }
+    const requestBody = {
+      contents: [{
+        parts: parts
+      }],
+      generationConfig: {
+        responseModalities: ['TEXT', 'IMAGE'],
+        imageGenerationConfig: {
+          aspectRatio: '4:3', // 1200x900 比例
+          includeRaiFiltering: false,
+          personGeneration: 'DONT_ALLOW'
         }
       }
-    }
-
-    console.log('Converted refine image data count:', imageData.length);
-    return {
-      data: imageData
     };
+
+    // Debug logging
+    console.log('Multi-Image Fusion API Request (Gemini Native):', {
+      url: this.client.defaults.baseURL,
+      model: 'gemini-2.5-flash-image-preview',
+      prompt: params.prompt.substring(0, 100) + '...',
+      sourceImagesCount: params.sourceImages.length,
+      targetImageSize: targetBase64.length
+    });
+
+    try {
+      const response = await this.client.post('', requestBody, {
+        params: {
+          key: process.env.PRODUCT_REFINE_API_KEY
+        },
+        timeout: 120000 // 增加到2分钟超时
+      });
+
+      console.log('Multi-Image Fusion API Response (Gemini Native):', {
+        status: response.status,
+        hasData: !!response.data,
+        candidatesCount: response.data?.candidates?.length
+      });
+
+      // Convert Gemini response format to our expected format
+      return this.convertGeminiResponse(response.data);
+    } catch (error: any) {
+      console.error('Multi-Image Fusion API Error (Gemini Native):', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
   }
 
   // 食物替换专用方法 - 支持双图片输入
@@ -584,5 +628,83 @@ export class ProductRefineApiClient {
       });
       throw error;
     }
+  }
+
+  private convertGeminiResponse(geminiResponse: any) {
+    console.log('Converting Gemini Response...');
+    console.log('Candidates:', geminiResponse.candidates?.length || 0);
+
+    const candidates = geminiResponse.candidates || [];
+    const imageData = [];
+
+    for (const candidate of candidates) {
+      console.log('Processing candidate:', JSON.stringify(candidate, null, 2));
+      const parts = candidate.content?.parts || [];
+      console.log('Parts count:', parts.length);
+
+      for (const part of parts) {
+        console.log('Processing part:', JSON.stringify(part, null, 2));
+
+        // Check for different possible image data formats
+        if (part.inline_data || part.inlineData) {
+          // Handle both possible naming conventions
+          const inlineData = part.inline_data || part.inlineData;
+          const base64Data = inlineData.data;
+          const mimeType = inlineData.mime_type || inlineData.mimeType;
+
+          console.log('Found image data:', {
+            base64Length: base64Data?.length,
+            mimeType: mimeType
+          });
+
+          // Validate base64 data
+          if (!base64Data || base64Data.length === 0) {
+            console.warn('Empty base64 data found, skipping...');
+            continue;
+          }
+
+          // Create a data URL that can be processed by our existing code
+          const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+          imageData.push({
+            url: dataUrl, // This will be processed by our existing download logic
+            b64_json: base64Data // Also provide raw base64 for direct use
+          });
+        } else if (part.text && part.text.includes('data:image')) {
+          // Sometimes the image might be embedded in text as a data URL
+          const dataUrlMatch = part.text.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+          if (dataUrlMatch) {
+            const dataUrl = dataUrlMatch[0];
+            const base64Data = dataUrl.split(',')[1];
+
+            console.log('Found image in text:', {
+              base64Length: base64Data?.length
+            });
+
+            if (base64Data && base64Data.length > 0) {
+              imageData.push({
+                url: dataUrl,
+                b64_json: base64Data
+              });
+            }
+          }
+        } else if (part.text) {
+          // Log text parts for debugging
+          console.log('Text part found:', part.text.substring(0, 100) + '...');
+        }
+      }
+    }
+
+    console.log('Converted image data count:', imageData.length);
+
+    // Additional validation
+    if (imageData.length === 0) {
+      console.error('No image data found in Gemini response');
+      console.error('Full response structure:', JSON.stringify(geminiResponse, null, 2));
+    }
+
+    return {
+      data: imageData
+    };
   }
 }

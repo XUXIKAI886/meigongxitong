@@ -86,15 +86,15 @@ export class JobQueue {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
   
-  // Clean up completed jobs (older than 10 minutes for better concurrency)
+  // Clean up completed jobs (older than 15 minutes for better concurrency and frontend polling)
   static cleanup(): void {
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
     let cleanedCount = 0;
 
     for (const [jobId, job] of jobs.entries()) {
       if (
         (job.status === 'succeeded' || job.status === 'failed') &&
-        job.updatedAt < tenMinutesAgo
+        job.updatedAt < fifteenMinutesAgo
       ) {
         jobs.delete(jobId);
         cleanedCount++;
@@ -208,15 +208,18 @@ export class JobRunner {
       });
 
       // 延迟清理任务，给前端足够时间获取结果
+      // 增加清理延迟到15分钟，确保前端轮询有足够时间
       setTimeout(() => {
         const currentJob = JobQueue.getJob(jobId);
-        if (currentJob) {
+        if (currentJob && currentJob.status === 'succeeded') {
           JobQueue.removeJob(jobId);
-          console.log(`Job ${jobId} cleaned up after completion`);
+          console.log(`Job ${jobId} cleaned up after completion (15min delay)`);
+        } else if (currentJob) {
+          console.log(`Job ${jobId} not cleaned up - status: ${currentJob.status}`);
         } else {
-          console.log(`Job ${jobId} already cleaned up`);
+          console.log(`Job ${jobId} already cleaned up by global cleanup`);
         }
-      }, 300000); // 5分钟后清理，确保前端有足够时间获取结果
+      }, 900000); // 15分钟后清理，确保前端有足够时间获取结果
     } catch (error) {
       console.error(`Job ${jobId} failed:`, error);
       JobQueue.updateJob(jobId, {
