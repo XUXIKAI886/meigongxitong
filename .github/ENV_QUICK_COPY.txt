@@ -1,0 +1,96 @@
+==========================================================
+Vercel 环境变量配置 - 快速复制版
+==========================================================
+
+📋 共13个环境变量，请在Vercel Dashboard中逐个添加：
+Settings → Environment Variables → Add
+
+每个变量都要选择环境: Production, Preview, Development (全选)
+
+==========================================================
+
+变量 1/13
+---
+Name: IMAGE_API_BASE_URL
+Value: https://jeniya.top/v1/images/generations
+
+变量 2/13
+---
+Name: IMAGE_MODEL_NAME
+Value: doubao-seedream-4-0-250828
+
+变量 3/13
+---
+Name: IMAGE_API_KEY
+Value: sk-qNMLqt90BOryg38Ey21HI4QWQl2SObYybMli28qginQolPaE
+
+变量 4/13
+---
+Name: PRODUCT_IMAGE_API_BASE_URL
+Value: https://jeniya.top/v1/images/generations
+
+变量 5/13
+---
+Name: PRODUCT_IMAGE_MODEL_NAME
+Value: gemini-2.5-flash-image-preview
+
+变量 6/13
+---
+Name: PRODUCT_IMAGE_API_KEY
+Value: sk-AHP64E0ntf5VEltYLSV17wTLYeV4WZ3ucJzf72u0UHXf0Hos
+
+变量 7/13
+---
+Name: PRODUCT_REFINE_API_BASE_URL
+Value: http://jeniya.top/v1beta/models/gemini-2.5-flash-image-preview:generateContent
+
+变量 8/13
+---
+Name: PRODUCT_REFINE_MODEL_NAME
+Value: gemini-2.5-flash-lite
+
+变量 9/13
+---
+Name: PRODUCT_REFINE_API_KEY
+Value: sk-AHP64E0ntf5VEltYLSV17wTLYeV4WZ3ucJzf72u0UHXf0Hos
+
+变量 10/13
+---
+Name: CHAT_API_BASE_URL
+Value: https://jeniya.top/v1/chat/completions
+
+变量 11/13
+---
+Name: CHAT_MODEL_NAME
+Value: gemini-2.5-flash-lite
+
+变量 12/13
+---
+Name: CHAT_API_KEY
+Value: sk-AHP64E0ntf5VEltYLSV17wTLYeV4WZ3ucJzf72u0UHXf0Hos
+
+变量 13/13
+---
+Name: STORAGE_ROOT
+Value: ./.uploads
+
+==========================================================
+✅ 添加完成后，点击 "Redeploy" 重新部署！
+==========================================================
+
+功能对应关系：
+- F1 单品图换背景 → PRODUCT_IMAGE_*
+- F2 Logo设计 → IMAGE_* + CHAT_*
+- F3 门头招牌 → IMAGE_*
+- F4 图片墙 → IMAGE_*
+- F5 产品精修 → PRODUCT_REFINE_*
+- F6 食物替换 → PRODUCT_REFINE_*
+- F7 背景融合 → PRODUCT_REFINE_*
+- F8 多图融合 → PRODUCT_REFINE_*
+
+⚠️ 安全提示：
+- API_KEY是敏感信息，请妥善保管
+- 定期更换API密钥
+- 不要公开分享密钥
+
+📖 详细说明请查看: .github/ENV_VARIABLES_GUIDE.md
