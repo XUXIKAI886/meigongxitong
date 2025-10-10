@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useFoodReplacement } from './hooks/useFoodReplacement';
 import { useTemplates } from './hooks/useTemplates';
 import { useImageUpload } from './hooks/useImageUpload';
+import { FoodReplacementResult } from './types';
 import BatchModeToggle from './components/BatchModeToggle';
 import SourceImageUpload from './components/SourceImageUpload';
 import TargetImageUpload from './components/TargetImageUpload';
@@ -27,6 +28,7 @@ export default function FoodReplacementPage() {
     clearHistoryResults,
     pollJobStatus,
     setCurrentJobFileNames,
+    addResults, // 使用hook提供的addResults方法
   } = useFoodReplacement();
 
   const {
@@ -136,27 +138,49 @@ export default function FoodReplacementPage() {
             console.log('检测到Vercel同步模式响应，直接处理结果');
             setIsProcessing(false);
 
-            // 处理每个结果
-            data.data.results.forEach((result: any, index: number) => {
-              if (result.imageUrl && !result.error) {
-                // 成功的结果
-                setJobStatus({
-                  id: `vercel-batch-${index}`,
-                  status: 'succeeded',
-                  progress: 100,
-                  result: {
-                    imageUrl: result.imageUrl,
-                    width: result.width,
-                    height: result.height,
-                  },
-                });
-              } else {
-                // 失败的结果
-                console.error(`源图片 ${index + 1} 处理失败:`, result.error);
-              }
-            });
+            // 转换结果为 FoodReplacementResult 格式
+            const newResults: FoodReplacementResult[] = data.data.results
+              .filter((result: any) => result.imageUrl && !result.error)
+              .map((result: any, index: number) => ({
+                id: `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 15)}`,
+                imageUrl: result.imageUrl,
+                width: result.width,
+                height: result.height,
+                sourceImageIndex: result.sourceImageIndex !== undefined ? result.sourceImageIndex : index,
+                sourceFileName: sourceImages[result.sourceImageIndex || index]?.name,
+                processedAt: new Date().toISOString(),
+              }));
 
-            alert(`批量处理完成! 成功: ${data.data.processedCount}/${sourceImages.length}`);
+            console.log('转换后的结果:', newResults);
+
+            // 添加到completedResults
+            addResults(newResults);
+
+            // 设置最后一个结果的状态用于显示
+            if (newResults.length > 0) {
+              setJobStatus({
+                id: 'vercel-batch-completed',
+                status: 'succeeded',
+                progress: 100,
+                result: {
+                  imageUrl: newResults[newResults.length - 1].imageUrl,
+                  width: newResults[newResults.length - 1].width,
+                  height: newResults[newResults.length - 1].height,
+                },
+              });
+            }
+
+            // 报告失败的图片
+            const failedCount = data.data.results.length - newResults.length;
+            if (failedCount > 0) {
+              data.data.results.forEach((result: any, index: number) => {
+                if (result.error) {
+                  console.error(`源图片 ${index + 1} 处理失败:`, result.error);
+                }
+              });
+            }
+
+            alert(`批量处理完成! 成功: ${newResults.length}/${sourceImages.length}${failedCount > 0 ? `, 失败: ${failedCount}` : ''}`);
           } else if (data.jobId) {
             // 本地异步模式: 轮询作业状态
             console.log('检测到本地异步模式，开始轮询作业:', data.jobId);
@@ -207,6 +231,20 @@ export default function FoodReplacementPage() {
             // Vercel同步模式: 直接显示结果
             console.log('检测到Vercel同步模式响应，直接处理结果');
             setIsProcessing(false);
+
+            // 创建结果对象
+            const newResult: FoodReplacementResult = {
+              id: `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`,
+              imageUrl: data.data.imageUrl,
+              width: data.data.width,
+              height: data.data.height,
+              sourceFileName: sourceImage?.name,
+              processedAt: new Date().toISOString(),
+            };
+
+            // 添加到completedResults
+            addResults([newResult]);
+
             setJobStatus({
               id: 'vercel-single',
               status: 'succeeded',

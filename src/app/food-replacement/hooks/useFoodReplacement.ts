@@ -155,6 +155,15 @@ export function useFoodReplacement() {
     poll();
   }, [shouldStopPolling, saveResultsToStorage]);
 
+  // 添加结果的方法
+  const addResults = useCallback((newResults: FoodReplacementResult[]) => {
+    setCompletedResults(prevResults => {
+      const updatedResults = [...prevResults, ...newResults];
+      saveResultsToStorage(updatedResults);
+      return updatedResults;
+    });
+  }, [saveResultsToStorage]);
+
   return {
     // 状态
     isBatchMode,
@@ -171,5 +180,6 @@ export function useFoodReplacement() {
     clearHistoryResults,
     pollJobStatus,
     setCurrentJobFileNames,
+    addResults, // 新增: 添加结果的方法
   };
 }
