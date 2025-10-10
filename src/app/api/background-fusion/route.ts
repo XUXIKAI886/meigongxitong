@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProductRefineApiClient } from '@/lib/api-client';
 import { jobRunner, JobQueue } from '@/lib/job-queue';
+import { FileManager } from '@/lib/upload';
 import { config } from '@/lib/config';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, mkdir, readFile } from 'fs/promises';
@@ -51,19 +52,17 @@ class BackgroundFusionProcessor {
       throw new Error('No valid image data found in response');
     }
 
-    // 保存生成的图片
+    // 保存生成的图片 (使用 FileManager 自动适配 Vercel)
     const imageBuffer = Buffer.from(base64Data, 'base64');
-    const filename = `background-fusion-${uuidv4()}.png`;
-    const outputDir = path.join(process.cwd(), 'public', 'generated');
-
-    // 确保输出目录存在
-    await mkdir(outputDir, { recursive: true });
-
-    const outputPath = path.join(outputDir, filename);
-    await writeFile(outputPath, imageBuffer);
+    const savedFile = await FileManager.saveBuffer(
+      imageBuffer,
+      `background-fusion-${Date.now()}.png`,
+      'image/png',
+      true
+    );
 
     return {
-      imageUrl: `/generated/${filename}`,
+      imageUrl: savedFile.url,
       width: 1200,
       height: 900
     };
@@ -170,20 +169,37 @@ FINAL RESULT REQUIREMENTS:
 
 Generate a single, perfectly fused image that combines the best qualities of both source and target images while making the food look absolutely delicious and naturally integrated into the background scene.`;
 
-    // 创建任务
-    const job = JobQueue.createJob('background-fusion', {
+    const payload = {
       sourceImageBuffer,
       targetImageBuffer,
       prompt,
-    });
+    };
 
-    // 启动任务处理
-    jobRunner.runJob(job.id);
+    // Vercel 环境检测: 同步处理而非异步作业队列
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
-    return NextResponse.json({
-      jobId: job.id,
-      message: '背景融合任务已创建',
-    });
+    if (isVercel) {
+      // Vercel 模式: 同步处理,直接返回结果
+      console.log('Vercel环境检测: 使用同步处理模式');
+
+      const processor = new BackgroundFusionProcessor();
+      const result = await processor.process({ id: `vercel-${Date.now()}`, payload } as any);
+
+      return NextResponse.json({
+        ok: true,
+        data: result
+      });
+    } else {
+      // 本地模式: 异步作业队列
+      const job = JobQueue.createJob('background-fusion', payload);
+
+      jobRunner.runJob(job.id);
+
+      return NextResponse.json({
+        jobId: job.id,
+        message: '背景融合任务已创建',
+      });
+    }
 
   } catch (error) {
     console.error('Background fusion error:', error);
