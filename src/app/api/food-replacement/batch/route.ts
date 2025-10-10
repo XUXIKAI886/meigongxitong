@@ -128,7 +128,7 @@ class BatchFoodReplacementProcessor {
         results.push(result);
         processedCount++;
 
-        console.log(`Successfully processed source image ${i + 1}, saved as ${filename}`);
+        console.log(`Successfully processed source image ${i + 1}, saved to ${savedFile.url}`);
 
       } catch (error) {
         console.error(`Error processing source image ${i + 1}:`, error);
