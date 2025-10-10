@@ -130,9 +130,40 @@ export default function FoodReplacementPage() {
         console.log('批量模式API响应数据:', data);
 
         if (data.ok) {
-          console.log('批量模式处理成功，开始轮询作业:', data.jobId);
-          const fileNames = sourceImages.map(file => file.name);
-          pollJobStatus(data.jobId, fileNames);
+          // 检测是同步结果(Vercel)还是异步任务(本地)
+          if (data.data && Array.isArray(data.data.results)) {
+            // Vercel同步模式: 直接显示结果
+            console.log('检测到Vercel同步模式响应，直接处理结果');
+            setIsProcessing(false);
+
+            // 处理每个结果
+            data.data.results.forEach((result: any, index: number) => {
+              if (result.imageUrl && !result.error) {
+                // 成功的结果
+                setJobStatus({
+                  status: 'succeeded',
+                  result: {
+                    imageUrl: result.imageUrl,
+                    width: result.width,
+                    height: result.height,
+                  },
+                  fileName: sourceImages[index]?.name || `图片${index + 1}`,
+                });
+              } else {
+                // 失败的结果
+                console.error(`源图片 ${index + 1} 处理失败:`, result.error);
+              }
+            });
+
+            alert(`批量处理完成! 成功: ${data.data.processedCount}/${sourceImages.length}`);
+          } else if (data.jobId) {
+            // 本地异步模式: 轮询作业状态
+            console.log('检测到本地异步模式，开始轮询作业:', data.jobId);
+            const fileNames = sourceImages.map(file => file.name);
+            pollJobStatus(data.jobId, fileNames);
+          } else {
+            throw new Error('无效的API响应格式');
+          }
         } else {
           console.error('批量模式API返回错误:', {
             error: data.error,
@@ -170,9 +201,29 @@ export default function FoodReplacementPage() {
         console.log('单张模式API响应数据:', data);
 
         if (data.ok) {
-          console.log('单张模式处理成功，开始轮询作业:', data.jobId);
-          const fileNames = sourceImage ? [sourceImage.name] : [];
-          pollJobStatus(data.jobId, fileNames);
+          // 检测是同步结果(Vercel)还是异步任务(本地)
+          if (data.data && data.data.imageUrl) {
+            // Vercel同步模式: 直接显示结果
+            console.log('检测到Vercel同步模式响应，直接处理结果');
+            setIsProcessing(false);
+            setJobStatus({
+              status: 'succeeded',
+              result: {
+                imageUrl: data.data.imageUrl,
+                width: data.data.width,
+                height: data.data.height,
+              },
+              fileName: sourceImage?.name || '单张图片',
+            });
+            alert('食物替换完成!');
+          } else if (data.jobId) {
+            // 本地异步模式: 轮询作业状态
+            console.log('检测到本地异步模式，开始轮询作业:', data.jobId);
+            const fileNames = sourceImage ? [sourceImage.name] : [];
+            pollJobStatus(data.jobId, fileNames);
+          } else {
+            throw new Error('无效的API响应格式');
+          }
         } else {
           console.error('单张模式API返回错误:', {
             error: data.error,
