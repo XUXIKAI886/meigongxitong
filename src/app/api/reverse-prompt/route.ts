@@ -6,6 +6,11 @@ import { upload, FileManager } from '@/lib/upload';
 import { config } from '@/lib/config';
 import { ReversePromptRequest, ReversePromptResponse, ApiResponse } from '@/types';
 
+
+// 强制使用 Node.js Runtime (Vercel部署必需)
+export const runtime = 'nodejs';
+export const maxDuration = 300; // 5分钟超时
+
 // Job processor for reverse prompt
 class ReversePromptProcessor {
   private chatClient = new ChatApiClient();
