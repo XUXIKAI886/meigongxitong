@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProductRefineApiClient } from '@/lib/api-client';
 import { jobRunner, JobQueue } from '@/lib/job-queue';
+import { FileManager } from '@/lib/upload';
 import { config } from '@/lib/config';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, mkdir, readFile } from 'fs/promises';
@@ -99,18 +100,17 @@ class FoodReplacementProcessor {
       throw new Error('No valid image data found in response');
     }
 
-    // 保存生成的图片
+    // 保存生成的图片 (使用 FileManager 自动适配 Vercel)
     const imageBuffer = Buffer.from(base64Data, 'base64');
-    const filename = `${uuidv4()}.png`;
-    const generatedDir = path.join(process.cwd(), 'public', 'generated');
-    const filepath = path.join(generatedDir, filename);
-
-    // 确保目录存在
-    await mkdir(generatedDir, { recursive: true });
-    await writeFile(filepath, imageBuffer);
+    const savedFile = await FileManager.saveBuffer(
+      imageBuffer,
+      `food-replacement-${Date.now()}.png`,
+      'image/png',
+      true // 使用 public/generated 目录
+    );
 
     return {
-      imageUrl: `/generated/${filename}`,
+      imageUrl: savedFile.url,
       width: 1200,
       height: 900
     };
@@ -286,18 +286,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create job
-    const job = JobQueue.createJob('food-replacement', {
+    const payload = {
       sourceImageBuffer: sourceImageBuffer.toString('base64'), // base64 string
       targetImageBuffer: targetImageBuffer.toString('base64'), // base64 string
       prompt: prompt.trim(),
-    }, clientIp);
+    };
 
-    // Start job processing
-    console.log(`Starting food replacement job processing for ${job.id}`);
-    jobRunner.runJob(job.id);
+    // Vercel 环境检测: 同步处理而非异步作业队列
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
-    return NextResponse.json({ ok: true, jobId: job.id });
+    if (isVercel) {
+      // Vercel 模式: 同步处理,直接返回结果
+      console.log('Vercel环境检测: 使用同步处理模式');
+
+      const processor = new FoodReplacementProcessor();
+      const result = await processor.process({ id: `vercel-${Date.now()}`, payload } as any);
+
+      return NextResponse.json({
+        ok: true,
+        data: result
+      });
+    } else {
+      // 本地模式: 异步作业队列
+      const job = JobQueue.createJob('food-replacement', payload, clientIp);
+
+      console.log(`Starting food replacement job processing for ${job.id}`);
+      jobRunner.runJob(job.id);
+
+      return NextResponse.json({ ok: true, jobId: job.id });
+    }
   } catch (error) {
     console.error('Food replacement error:', error);
     return NextResponse.json(

@@ -36,9 +36,11 @@ class BatchProductRefineProcessor {
 
     for (let i = 0; i < sourceImageBuffers.length; i++) {
       try {
-        // 更新进度
-        const progress = Math.round(((i + 1) / sourceImageBuffers.length) * 100);
-        JobQueue.updateJob(job.id, { progress });
+        // 更新进度 (仅本地模式)
+        if (!job.id.startsWith('vercel-')) {
+          const progress = Math.round(((i + 1) / sourceImageBuffers.length) * 100);
+          JobQueue.updateJob(job.id, { progress });
+        }
 
         console.log(`Processing image ${i + 1}/${sourceImageBuffers.length}`);
 
@@ -186,27 +188,46 @@ export async function POST(request: NextRequest) {
       sourceImageTypes.push(file.type);
     }
 
-    // Create job
-    const job = JobQueue.createJob('batch-product-refine', {
+    const payload = {
       sourceImageBuffers,
       sourceImageTypes,
       prompt: prompt.trim(),
       outputFolder: outputFolder.trim(),
-    }, clientIp);
+    };
 
-    // Start job processing
-    console.log(`Starting batch product refine job processing for ${job.id} with ${sourceImageFiles.length} images`);
-    jobRunner.runJob(job.id);
+    // Vercel 环境检测: 同步处理而非异步作业队列
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
-    return NextResponse.json({
-      ok: true,
-      data: {
-        jobId: job.id,
-        message: `批量产品精修任务已创建，正在处理 ${sourceImageFiles.length} 张图片...`
-      },
-      requestId: job.id,
-      durationMs: 0
-    });
+    if (isVercel) {
+      // Vercel 模式: 同步处理,直接返回结果
+      console.log('Vercel环境检测: 使用同步处理模式');
+
+      const processor = new BatchProductRefineProcessor();
+      const result = await processor.process({ id: `vercel-${Date.now()}`, payload } as any);
+
+      return NextResponse.json({
+        ok: true,
+        data: result,
+        requestId: `vercel-${Date.now()}`,
+        durationMs: 0
+      } as ApiResponse);
+    } else {
+      // 本地模式: 异步作业队列
+      const job = JobQueue.createJob('batch-product-refine', payload, clientIp);
+
+      console.log(`Starting batch product refine job processing for ${job.id} with ${sourceImageFiles.length} images`);
+      jobRunner.runJob(job.id);
+
+      return NextResponse.json({
+        ok: true,
+        data: {
+          jobId: job.id,
+          message: `批量产品精修任务已创建，正在处理 ${sourceImageFiles.length} 张图片...`
+        },
+        requestId: job.id,
+        durationMs: 0
+      } as ApiResponse);
+    }
 
   } catch (error: any) {
     console.error('Batch product refine API error:', error);

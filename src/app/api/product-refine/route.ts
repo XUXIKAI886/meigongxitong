@@ -132,26 +132,45 @@ export async function POST(request: NextRequest) {
     // Convert to base64 format
     const imageBuffer = Buffer.from(await sourceImageFile.arrayBuffer());
 
-    // Create job
-    const job = JobQueue.createJob('product-refine', {
+    const payload = {
       sourceImageBuffer: imageBuffer.toString('base64'), // base64 string
       sourceImageType: sourceImageFile.type, // MIME type
       prompt: prompt.trim(),
-    }, clientIp);
+    };
 
-    // Start job processing
-    console.log(`Starting product refine job processing for ${job.id}`);
-    jobRunner.runJob(job.id);
+    // Vercel 环境检测: 同步处理而非异步作业队列
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
-    return NextResponse.json({
-      ok: true,
-      data: {
-        jobId: job.id,
-        message: '产品精修任务已创建，正在处理中...'
-      },
-      requestId: job.id,
-      durationMs: 0
-    });
+    if (isVercel) {
+      // Vercel 模式: 同步处理,直接返回结果
+      console.log('Vercel环境检测: 使用同步处理模式');
+
+      const processor = new ProductRefineProcessor();
+      const result = await processor.process({ id: `vercel-${Date.now()}`, payload } as any);
+
+      return NextResponse.json({
+        ok: true,
+        data: result,
+        requestId: `vercel-${Date.now()}`,
+        durationMs: 0
+      } as ApiResponse);
+    } else {
+      // 本地模式: 异步作业队列
+      const job = JobQueue.createJob('product-refine', payload, clientIp);
+
+      console.log(`Starting product refine job processing for ${job.id}`);
+      jobRunner.runJob(job.id);
+
+      return NextResponse.json({
+        ok: true,
+        data: {
+          jobId: job.id,
+          message: '产品精修任务已创建，正在处理中...'
+        },
+        requestId: job.id,
+        durationMs: 0
+      } as ApiResponse);
+    }
 
   } catch (error: any) {
     console.error('Product refine API error:', error);
