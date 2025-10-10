@@ -7,6 +7,11 @@ import { ApiResponse } from '@/types';
 import * as fs from 'fs';
 import * as path from 'path';
 
+
+// 强制使用 Node.js Runtime (Vercel部署必需)
+export const runtime = 'nodejs';
+export const maxDuration = 300; // 5分钟超时
+
 // Job processor for batch product refine
 class BatchProductRefineProcessor {
   private refineClient: ProductRefineApiClient;

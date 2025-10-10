@@ -7,6 +7,11 @@ import { enhancePromptWithShopDetails } from '@/lib/prompt-templates';
 import { parseSize, resizeImage } from '@/lib/image-utils';
 import { ApiResponse } from '@/types';
 
+
+// 强制使用 Node.js Runtime (Vercel部署必需)
+export const runtime = 'nodejs';
+export const maxDuration = 300; // 5分钟超时
+
 // Job processor for poster generation
 class PosterGenerationProcessor {
   private imageClient = new ImageApiClient();

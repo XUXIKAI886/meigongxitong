@@ -7,6 +7,11 @@ import { writeFile, mkdir, readFile } from 'fs/promises';
 import path from 'path';
 import fs from 'fs';
 
+
+// 强制使用 Node.js Runtime (Vercel部署必需)
+export const runtime = 'nodejs';
+export const maxDuration = 300; // 5分钟超时
+
 // Job processor for batch food replacement
 class BatchFoodReplacementProcessor {
   private apiClient: ProductRefineApiClient;

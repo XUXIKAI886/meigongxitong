@@ -10,6 +10,10 @@ import { config } from '@/lib/config';
 import { createReversePromptRequestWithBase64 } from '@/lib/prompt-templates';
 import { ApiResponse } from '@/types';
 
+// 强制使用 Node.js Runtime (Vercel部署必需)
+export const runtime = 'nodejs';
+export const maxDuration = 300; // 5分钟超时
+
 // Logo设计工作室处理器
 class LogoStudioProcessor {
   private imageClient = new ImageApiClient();

@@ -6,6 +6,11 @@ import { config } from '@/lib/config';
 import { parseSize, resizeImage, removeBackground, addBackground, enhanceImage } from '@/lib/image-utils';
 import { ApiResponse, GenerateProductRequest } from '@/types';
 
+
+// 强制使用 Node.js Runtime (Vercel部署必需)
+export const runtime = 'nodejs';
+export const maxDuration = 300; // 5分钟超时
+
 // Job processor for product generation
 class ProductGenerationProcessor {
   private imageClient = new ProductImageApiClient(); // 使用单品图专用客户端
