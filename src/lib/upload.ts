@@ -113,6 +113,22 @@ export class FileManager {
     let targetDir: string;
     let url: string;
 
+    // 检测是否在 Vercel 环境 (只读文件系统)
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+    if (isVercel) {
+      // Vercel 环境: 返回 base64 data URL (无需写入文件)
+      console.log('Vercel环境检测: 使用base64返回,不写入文件');
+      const base64 = buffer.toString('base64');
+      const dataUrl = `data:${mimetype};base64,${base64}`;
+
+      return {
+        filename,
+        path: 'memory', // 标记为内存存储
+        url: dataUrl,   // 返回 base64 data URL
+      };
+    }
+
     if (usePublicGenerated) {
       // 使用public/generated目录 - 统一存储方案
       targetDir = path.join(process.cwd(), 'public', 'generated');
@@ -149,6 +165,13 @@ export class FileManager {
   
   // 自动清理过期文件（7天前的文件）
   static async cleanup(): Promise<void> {
+    // Vercel 环境跳过清理 (只读文件系统)
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    if (isVercel) {
+      console.log('⏭️  Vercel环境检测: 跳过文件清理任务');
+      return;
+    }
+
     try {
       console.log('🧹 开始自动清理任务：删除7天前的文件...');
 
