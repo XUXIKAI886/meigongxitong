@@ -76,7 +76,25 @@ export default function PictureWallPage() {
 
       const data = await response.json();
       if (data.ok) {
-        pollJobStatus(data.data.jobId);
+        // 检测同步响应 (Vercel) vs 异步响应 (本地)
+        if (data.data.images) {
+          // Vercel 同步模式: 直接使用返回的结果
+          console.log('检测到同步响应(Vercel模式),直接使用结果:', data.data);
+
+          setJobStatus({
+            id: 'vercel-sync',
+            status: 'succeeded',
+            progress: 100,
+            result: data.data,
+          });
+          setIsProcessing(false);
+        } else if (data.data.jobId) {
+          // 本地异步模式: 使用 jobId 轮询
+          console.log('检测到异步响应(本地模式),开始轮询 jobId:', data.data.jobId);
+          pollJobStatus(data.data.jobId);
+        } else {
+          throw new Error('Invalid response format');
+        }
       } else {
         throw new Error(data.error || 'Generation failed');
       }
