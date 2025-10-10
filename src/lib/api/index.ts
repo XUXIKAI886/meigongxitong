@@ -5,6 +5,12 @@ export { ChatApiClient } from './clients/ChatApiClient';
 export { ProductImageApiClient } from './clients/ProductImageApiClient';
 export { ProductRefineApiClient } from './clients/ProductRefineApiClient';
 
+// 导入客户端类
+import { ImageApiClient } from './clients/ImageApiClient';
+import { ChatApiClient } from './clients/ChatApiClient';
+import { ProductImageApiClient } from './clients/ProductImageApiClient';
+import { ProductRefineApiClient } from './clients/ProductRefineApiClient';
+
 // 创建客户端实例的工厂函数
 export function createImageApiClient() {
   return new ImageApiClient();

@@ -479,7 +479,7 @@ export class ProductRefineApiClient {
     const targetMimeType = params.targetImage.match(/data:([^;]+);/)?.[1] || 'image/png';
 
     // Build parts array with prompt and all images
-    const parts = [
+    const parts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [
       { text: params.prompt }
     ];
 

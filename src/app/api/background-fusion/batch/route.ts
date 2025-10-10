@@ -11,7 +11,7 @@ import fs from 'fs';
 class BatchBackgroundFusionProcessor {
   async process(jobData: any) {
     const { sourceImageBuffers, targetImageBuffer, prompt } = jobData.payload;
-    const client = new ProductRefineApiClient(config.apiKey, config.baseUrl);
+    const client = new ProductRefineApiClient();
     
     const results = [];
     const total = sourceImageBuffers.length;
@@ -43,13 +43,15 @@ class BatchBackgroundFusionProcessor {
             break; // 成功则跳出重试循环
           } catch (error) {
             lastError = error;
-            console.log(`Background Fusion Batch - Attempt ${retry + 1} failed for image ${i + 1}:`, error.message);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log(`Background Fusion Batch - Attempt ${retry + 1} failed for image ${i + 1}:`, errorMessage);
             if (retry < 2) {
               console.log(`Background Fusion Batch - Waiting 2 seconds before retry ${retry + 2} for image ${i + 1}`);
               // 等待2秒后重试
               await new Promise(resolve => setTimeout(resolve, 2000));
             } else {
-              console.log(`Background Fusion Batch - All 3 attempts failed for image ${i + 1}, final error:`, error.message);
+              const finalErrorMessage = error instanceof Error ? error.message : 'Unknown error';
+              console.log(`Background Fusion Batch - All 3 attempts failed for image ${i + 1}, final error:`, finalErrorMessage);
             }
           }
         }

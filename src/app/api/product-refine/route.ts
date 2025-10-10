@@ -138,13 +138,15 @@ export async function POST(request: NextRequest) {
     console.log(`Starting product refine job processing for ${job.id}`);
     jobRunner.runJob(job.id);
 
-    const response: ApiResponse = {
-      success: true,
-      jobId: job.id,
-      message: '产品精修任务已创建，正在处理中...'
-    };
-
-    return NextResponse.json(response);
+    return NextResponse.json({
+      ok: true,
+      data: {
+        jobId: job.id,
+        message: '产品精修任务已创建，正在处理中...'
+      },
+      requestId: job.id,
+      durationMs: 0
+    });
 
   } catch (error: any) {
     console.error('Product refine API error:', error);

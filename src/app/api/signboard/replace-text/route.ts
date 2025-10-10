@@ -25,11 +25,7 @@ class SignboardTextReplaceProcessor {
       return await this.imageClient.generateImageWithImage({
         image: base64Image,
         prompt: prompt,
-        size: config.signboard.outputSize,
-        sequential_image_generation: 'disabled',
-        response_format: 'url',
-        watermark: false,
-        stream: false
+        size: config.signboard.outputSize
       });
     });
 

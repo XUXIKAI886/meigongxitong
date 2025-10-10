@@ -1,7 +1,7 @@
 // Job management types
 export interface Job {
   id: string;
-  type: 'reverse-prompt' | 'generate-logo' | 'generate-storefront' | 'generate-poster' | 'generate-product' | 'signboard-replace' | 'picture-wall';
+  type: 'reverse-prompt' | 'generate-logo' | 'generate-storefront' | 'generate-poster' | 'generate-product' | 'signboard-replace' | 'picture-wall' | 'background-fusion' | 'batch-background-fusion' | 'food-replacement' | 'batch-food-replacement' | 'product-refine' | 'batch-product-refine' | 'multi-fusion' | 'logo-studio' | 'logo-studio-fusion';
   status: 'queued' | 'running' | 'succeeded' | 'failed';
   payload: any;
   result?: any;

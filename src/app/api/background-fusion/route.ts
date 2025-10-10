@@ -12,23 +12,17 @@ class BackgroundFusionProcessor {
   async process(jobData: any) {
     const { sourceImageBuffer, targetImageBuffer, prompt } = jobData.payload;
 
-    const client = new ProductRefineApiClient(config.apiKey, config.baseUrl);
+    const client = new ProductRefineApiClient();
 
     // 转换Buffer为base64 data URL
     const sourceImageBase64 = `data:image/png;base64,${sourceImageBuffer.toString('base64')}`;
     const targetImageBase64 = `data:image/png;base64,${targetImageBuffer.toString('base64')}`;
 
-    // 使用 generateImageWithImage 方法进行背景融合
-    // 将源图片作为基础图片，通过提示词描述如何融合到目标背景
-    const enhancedPrompt = `${prompt}
-
-Target background reference: Use the style, lighting, and environment from the target background image to create the perfect fusion scene.`;
-
-    const response = await client.generateImageWithImage({
-      image: sourceImageBase64,
-      prompt: enhancedPrompt,
-      size: '1200x900',
-      n: 1
+    // 使用 replaceFoodInBowl 方法进行背景融合
+    const response = await client.replaceFoodInBowl({
+      sourceImage: sourceImageBase64,
+      targetImage: targetImageBase64,
+      prompt,
     });
 
     if (!response.data || response.data.length === 0) {

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user job mapping
-    const userJobMapping = {};
+    const userJobMapping: Record<string, string[]> = {};
     if (userJobs && userJobs.entries) {
       for (const [userId, jobIds] of userJobs.entries()) {
         userJobMapping[userId] = Array.from(jobIds);
@@ -46,8 +46,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Debug jobs API error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: error.message },
+      { error: errorMessage },
       { status: 500 }
     );
   }

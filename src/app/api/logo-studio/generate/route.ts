@@ -54,7 +54,7 @@ class LogoStudioProcessor {
     });
 
     const reversePromptResponse = await withRetry(async () => {
-      return await this.chatClient.createCompletion({
+      return await this.chatClient.createChatCompletion({
         model: config.chat.modelName,
         messages: reversePromptRequest.messages,
         max_tokens: 1500, // 增加token限制，确保获得完整的设计提示词
@@ -375,7 +375,8 @@ class LogoStudioFusionProcessor {
         results = { storefrontResult, posterResult, avatarResult };
         console.log('并行生成成功完成');
       } catch (error) {
-        console.log('并行生成失败，切换为串行模式重试...', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.log('并行生成失败，切换为串行模式重试...', errorMessage);
 
         // 串行生成，减少服务器压力
         const storefrontResult = await this.generateFusionImage(dishImageDataUrl, storefrontTemplate, storeName, templateStoreName, 'storefront');
@@ -462,7 +463,8 @@ class LogoStudioFusionProcessor {
           break;
         } catch (error: any) {
           lastError = error;
-          console.log(`阶段1 - Attempt ${retry + 1} failed:`, error.message);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.log(`阶段1 - Attempt ${retry + 1} failed:`, errorMessage);
           if (retry < 2) {
             console.log(`阶段1 - Waiting 2 seconds before retry ${retry + 2}`);
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -471,7 +473,8 @@ class LogoStudioFusionProcessor {
       }
 
       if (!stage1Response) {
-        console.log(`阶段1 - All 3 attempts failed, final error:`, lastError?.message);
+        const errorMessage = lastError instanceof Error ? lastError.message : 'Unknown error';
+        console.log(`阶段1 - All 3 attempts failed, final error:`, errorMessage);
         throw lastError;
       }
 
@@ -519,7 +522,8 @@ class LogoStudioFusionProcessor {
           break;
         } catch (error: any) {
           lastError = error;
-          console.log(`${type} generation - Attempt ${retry + 1} failed:`, error.message);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.log(`${type} generation - Attempt ${retry + 1} failed:`, errorMessage);
           if (retry < 2) {
             console.log(`${type} generation - Waiting 2 seconds before retry ${retry + 2}`);
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -528,7 +532,8 @@ class LogoStudioFusionProcessor {
       }
 
       if (!response) {
-        console.log(`${type} generation - All 3 attempts failed, final error:`, lastError?.message);
+        const errorMessage = lastError instanceof Error ? lastError.message : 'Unknown error';
+        console.log(`${type} generation - All 3 attempts failed, final error:`, errorMessage);
         throw lastError;
       }
     }
@@ -813,13 +818,13 @@ export async function POST(request: NextRequest) {
     console.log(`Starting job processing for ${job.id}`);
     jobRunner.runJob(job.id);
 
-    const response: ApiResponse = {
-      success: true,
+    return NextResponse.json({
+      ok: true,
       jobId: job.id,
-      message: '融合设计任务已创建，正在生成店招、海报、头像三种图片...'
-    };
-
-    return NextResponse.json(response);
+      message: '融合设计任务已创建，正在生成店招、海报、头像三种图片...',
+      requestId: job.id,
+      durationMs: 0
+    });
 
   } catch (error: any) {
     console.error('Logo studio API error:', error);

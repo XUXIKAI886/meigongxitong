@@ -4,7 +4,7 @@ import path from 'path';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { category: string; filename: string } }
+  { params }: { params: Promise<{ category: string; filename: string }> }
 ) {
   try {
     const { category, filename } = await params;
@@ -75,7 +75,7 @@ export async function GET(
     }
 
     // 设置缓存头
-    const response = new NextResponse(fileBuffer);
+    const response = new NextResponse(fileBuffer as unknown as BodyInit);
     response.headers.set('Content-Type', contentType);
     response.headers.set('Cache-Control', 'public, max-age=31536000'); // 缓存1年
     response.headers.set('Content-Disposition', `inline; filename="${decodedFilename}"`);

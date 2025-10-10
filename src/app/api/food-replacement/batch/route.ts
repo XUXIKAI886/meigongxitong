@@ -60,7 +60,8 @@ class BatchFoodReplacementProcessor {
             break; // 成功则跳出重试循环
           } catch (error) {
             lastError = error;
-            console.log(`Attempt ${retry + 1} failed for image ${i + 1}:`, error.message);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log(`Attempt ${retry + 1} failed for image ${i + 1}:`, errorMessage);
             if (retry < 2) {
               // 等待2秒后重试
               await new Promise(resolve => setTimeout(resolve, 2000));

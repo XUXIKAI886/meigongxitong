@@ -144,7 +144,9 @@ export default function FoodReplacementPage() {
         }
       } else {
         // 单张模式
-        formData.append('sourceImage', sourceImage);
+        if (sourceImage) {
+          formData.append('sourceImage', sourceImage);
+        }
 
         if (selectedTemplate) {
           formData.append('targetImageUrl', selectedTemplate.url);
@@ -169,7 +171,7 @@ export default function FoodReplacementPage() {
 
         if (data.ok) {
           console.log('单张模式处理成功，开始轮询作业:', data.jobId);
-          const fileNames = [sourceImage.name];
+          const fileNames = sourceImage ? [sourceImage.name] : [];
           pollJobStatus(data.jobId, fileNames);
         } else {
           console.error('单张模式API返回错误:', {

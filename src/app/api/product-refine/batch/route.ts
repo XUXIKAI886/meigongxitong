@@ -193,13 +193,15 @@ export async function POST(request: NextRequest) {
     console.log(`Starting batch product refine job processing for ${job.id} with ${sourceImageFiles.length} images`);
     jobRunner.runJob(job.id);
 
-    const response: ApiResponse = {
-      success: true,
-      jobId: job.id,
-      message: `批量产品精修任务已创建，正在处理 ${sourceImageFiles.length} 张图片...`
-    };
-
-    return NextResponse.json(response);
+    return NextResponse.json({
+      ok: true,
+      data: {
+        jobId: job.id,
+        message: `批量产品精修任务已创建，正在处理 ${sourceImageFiles.length} 张图片...`
+      },
+      requestId: job.id,
+      durationMs: 0
+    });
 
   } catch (error: any) {
     console.error('Batch product refine API error:', error);

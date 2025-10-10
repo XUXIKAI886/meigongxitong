@@ -124,7 +124,7 @@ export class ImageApiClient extends BaseApiClient {
       hasImageField: !!requestBody.image,
       imageFieldIsArray: Array.isArray(requestBody.image),
       imageFieldCount: requestBody.image?.length,
-      imageFieldSizes: requestBody.image?.map(img => Math.round(img.length / 1024) + 'KB'),
+      imageFieldSizes: requestBody.image?.map((img: string) => Math.round(img.length / 1024) + 'KB'),
     });
 
     // 验证base64是否正确
@@ -132,7 +132,7 @@ export class ImageApiClient extends BaseApiClient {
       console.log('Base64验证:', {
         firstImagePreview: requestBody.image[0].substring(0, 50) + '...',
         isValidBase64: /^[A-Za-z0-9+/]+=*$/.test(requestBody.image[0].replace(/\s/g, '')),
-        allImagesValid: requestBody.image.every(img =>
+        allImagesValid: requestBody.image.every((img: string) =>
           /^[A-Za-z0-9+/]+=*$/.test(img.replace(/\s/g, ''))
         ),
       });
@@ -143,7 +143,7 @@ export class ImageApiClient extends BaseApiClient {
       prompt: requestBody.prompt?.substring(0, 100) + '...',
       imageFieldType: Array.isArray(requestBody.image) ? 'array' : 'single',
       imageCount: requestBody.image?.length || 0,
-      totalImageSize: requestBody.image ? requestBody.image.reduce((sum, img) => sum + img.length, 0) : 0,
+      totalImageSize: requestBody.image ? requestBody.image.reduce((sum: number, img: string) => sum + img.length, 0) : 0,
       size: requestBody.size,
     });
 

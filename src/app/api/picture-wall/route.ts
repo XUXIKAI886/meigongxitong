@@ -54,14 +54,9 @@ class PictureWallProcessor {
     console.log('提取的提示词:', prompt);
     console.log('========================');
 
-    // Update progress: Reverse prompt completed, include reverse prompt data
+    // Update progress: Reverse prompt completed
     JobQueue.updateJob(job.id, {
-      progress: 30,
-      reversePrompt: {
-        fullResponse: content,
-        summary: summary,
-        extractedPrompt: prompt
-      }
+      progress: 30
     });
 
     // Use the original reverse prompt directly without any enhancement
@@ -174,7 +169,7 @@ ${compositionVariations[i]}
       reversePrompt: {
         summary,
         prompt,
-        originalPrompt: prompt
+        enhancedPrompt: prompt
       }
     };
   }

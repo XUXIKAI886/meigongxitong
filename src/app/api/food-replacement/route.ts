@@ -52,7 +52,8 @@ class FoodReplacementProcessor {
         break; // 成功则跳出重试循环
       } catch (error) {
         lastError = error;
-        console.log(`Food Replacement Single - Attempt ${retry + 1} failed:`, error.message);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.log(`Food Replacement Single - Attempt ${retry + 1} failed:`, errorMessage);
         if (retry < 2) {
           console.log(`Food Replacement Single - Waiting 2 seconds before retry ${retry + 2}`);
           await new Promise(resolve => setTimeout(resolve, 2000));
@@ -61,7 +62,8 @@ class FoodReplacementProcessor {
     }
 
     if (!response) {
-      console.log(`Food Replacement Single - All 3 attempts failed, final error:`, lastError.message);
+      const errorMessage = lastError instanceof Error ? lastError.message : 'Unknown error';
+      console.log(`Food Replacement Single - All 3 attempts failed, final error:`, errorMessage);
       throw lastError;
     }
 
@@ -115,7 +117,10 @@ jobRunner.registerProcessor('food-replacement', new FoodReplacementProcessor());
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('Food replacement request from:', request.ip);
+    const clientIp = request.headers.get('x-forwarded-for') ||
+                     request.headers.get('x-real-ip') ||
+                     'unknown';
+    console.log('Food replacement request from:', clientIp);
 
     const formData = await request.formData();
     const sourceImage = formData.get('sourceImage') as File;
@@ -170,11 +175,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 获取用户IP进行并发控制
-    const userIp = request.ip || 'unknown';
-
     // 检查用户并发限制
-    if (!JobQueue.canUserCreateJob(userIp, config.jobs.maxConcurrentPerUser)) {
+    if (!JobQueue.canUserCreateJob(clientIp, config.jobs.maxConcurrentPerUser)) {
       return NextResponse.json(
         { error: '并发任务过多，请等待现有任务完成后再试' },
         { status: 429 }
@@ -284,7 +286,7 @@ export async function POST(request: NextRequest) {
       sourceImageBuffer: sourceImageBuffer.toString('base64'), // base64 string
       targetImageBuffer: targetImageBuffer.toString('base64'), // base64 string
       prompt: prompt.trim(),
-    }, userIp);
+    }, clientIp);
 
     // Start job processing
     console.log(`Starting food replacement job processing for ${job.id}`);
