@@ -815,20 +815,37 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // 创建融合任务，传递base64数据
-    const job = JobQueue.createJob('logo-studio-fusion', jobPayload, clientIp);
+    // Vercel 环境检测: 同步处理而非异步作业队列
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
-    // 启动任务处理
-    console.log(`Starting job processing for ${job.id}`);
-    jobRunner.runJob(job.id);
+    if (isVercel) {
+      // Vercel 模式: 同步处理,直接返回结果
+      console.log('Vercel环境检测: 使用同步处理模式');
 
-    return NextResponse.json({
-      ok: true,
-      jobId: job.id,
-      message: '融合设计任务已创建，正在生成店招、海报、头像三种图片...',
-      requestId: job.id,
-      durationMs: 0
-    });
+      const processor = new LogoStudioFusionProcessor();
+      const result = await processor.process({ payload: jobPayload });
+
+      return NextResponse.json({
+        ok: true,
+        data: result,
+        message: '生成成功',
+        requestId: `vercel-${Date.now()}`,
+        durationMs: Date.now() - Date.now()
+      });
+    } else {
+      // 本地模式: 异步作业队列
+      const job = JobQueue.createJob('logo-studio-fusion', jobPayload, clientIp);
+      console.log(`Starting job processing for ${job.id}`);
+      jobRunner.runJob(job.id);
+
+      return NextResponse.json({
+        ok: true,
+        jobId: job.id,
+        message: '融合设计任务已创建，正在生成店招、海报、头像三种图片...',
+        requestId: job.id,
+        durationMs: 0
+      });
+    }
 
   } catch (error: any) {
     console.error('Logo studio API error:', error);
