@@ -352,9 +352,29 @@ export default function LogoStudioPage() {
         throw new Error('生成请求失败');
       }
 
-      const { jobId } = await response.json();
+      const responseData = await response.json();
 
-      // 开始轮询任务状态
+      // 检测同步响应 (Vercel) vs 异步响应 (本地)
+      if (responseData.data) {
+        // Vercel 同步模式: 直接使用返回的结果
+        console.log('检测到同步响应(Vercel模式),直接使用结果:', responseData.data);
+
+        if (type === 'avatar' && responseData.data.avatarUrl) {
+          setAvatarResult(responseData.data.avatarUrl);
+          setAvatarGenerating(false);
+        } else if (type === 'storefront' && responseData.data.storefrontUrl) {
+          setStorefrontResult(responseData.data.storefrontUrl);
+          setStorefrontGenerating(false);
+        } else if (type === 'poster' && responseData.data.posterUrl) {
+          setPosterResult(responseData.data.posterUrl);
+          setPosterGenerating(false);
+        }
+
+        return; // 同步模式无需轮询
+      }
+
+      // 本地异步模式: 使用 jobId 轮询
+      const { jobId } = responseData;
       console.log(`开始轮询任务状态，jobId: ${jobId}，类型: ${type}`);
       pollJobStatus(jobId, type);
     } catch (error) {
