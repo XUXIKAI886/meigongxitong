@@ -156,10 +156,29 @@ export function useFoodReplacement() {
   }, [shouldStopPolling, saveResultsToStorage]);
 
   // 添加结果的方法
-  const addResults = useCallback((newResults: FoodReplacementResult[]) => {
+  const addResults = useCallback((newResults: FoodReplacementResult[], skipStorage = false) => {
     setCompletedResults(prevResults => {
       const updatedResults = [...prevResults, ...newResults];
-      saveResultsToStorage(updatedResults);
+
+      // 如果skipStorage为true(Vercel模式),不保存到localStorage
+      if (!skipStorage) {
+        try {
+          saveResultsToStorage(updatedResults);
+        } catch (error) {
+          console.warn('保存到localStorage失败(可能是配额超出):', error);
+          // 如果保存失败,尝试只保存不含base64的元数据
+          try {
+            const metadataOnly = updatedResults.map(r => ({
+              ...r,
+              imageUrl: r.imageUrl.startsWith('data:') ? '[base64-data-too-large]' : r.imageUrl
+            }));
+            saveResultsToStorage(metadataOnly);
+          } catch (secondError) {
+            console.error('保存元数据也失败:', secondError);
+          }
+        }
+      }
+
       return updatedResults;
     });
   }, [saveResultsToStorage]);

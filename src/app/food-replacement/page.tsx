@@ -153,8 +153,8 @@ export default function FoodReplacementPage() {
 
             console.log('转换后的结果:', newResults);
 
-            // 添加到completedResults
-            addResults(newResults);
+            // 添加到completedResults (跳过localStorage保存,因为base64数据太大)
+            addResults(newResults, true);
 
             // 设置最后一个结果的状态用于显示
             if (newResults.length > 0) {
@@ -242,8 +242,8 @@ export default function FoodReplacementPage() {
               processedAt: new Date().toISOString(),
             };
 
-            // 添加到completedResults
-            addResults([newResult]);
+            // 添加到completedResults (跳过localStorage保存,因为base64数据太大)
+            addResults([newResult], true);
 
             setJobStatus({
               id: 'vercel-single',
