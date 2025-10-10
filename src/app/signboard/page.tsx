@@ -88,14 +88,14 @@ export default function SignboardPage() {
       try {
         const response = await fetch(`/api/jobs/${jobId}`);
         const data = await response.json();
-        
+
         if (data.ok) {
-          setJobStatus(data.data);
-          
-          if (data.data.status === 'succeeded') {
+          setJobStatus(data.job);
+
+          if (data.job.status === 'succeeded') {
             setIsProcessing(false);
-          } else if (data.data.status === 'failed') {
-            alert('处理失败：' + (data.data.error || '未知错误'));
+          } else if (data.job.status === 'failed') {
+            alert('处理失败：' + (data.job.error || '未知错误'));
             setIsProcessing(false);
           } else {
             setTimeout(poll, 2000);
@@ -106,7 +106,7 @@ export default function SignboardPage() {
         setTimeout(poll, 2000);
       }
     };
-    
+
     poll();
   };
 

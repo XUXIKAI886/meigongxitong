@@ -181,58 +181,71 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 食物替换专用提示词 - 强化版，严格区分不同食物类型的容器处理规则
-    const prompt = `Please perform precise and COMPLETE food replacement between two images with STRICT CONTAINER RULES:
+    // 食物替换专用提示词 - 统一版，所有食物都只提取食物本体，不提取器皿
+    const prompt = `Please perform precise and COMPLETE food replacement between two images with STRICT FOOD-ONLY EXTRACTION:
 
-CRITICAL FOOD EXTRACTION REQUIREMENTS BY TYPE:
+核心要求：识别源图片中的食物，只提取纯食物内容，绝对不提取任何盛装食物的器皿。
 
-1. FOR RICE BOWLS (盖浇饭) ONLY:
-   - Extract food + bowl together (this is the ONLY exception)
-   - Include the rice, toppings, and the serving bowl as one complete unit
-   - This applies ONLY to rice bowls with toppings (盖浇饭)
+1. 严格的食物提取规则 - 适用于所有食物类型：
+   ✅ 只提取食物本体内容：
+   - 盖浇饭：只提取米饭+浇头(肉类/蔬菜/酱汁) - 绝对不要碗
+   - 面条/意面：只提取面条+汤汁+配料 - 绝对不要碗/盘
+   - 汤类：只提取汤液+食材 - 绝对不要碗/容器
+   - 炒菜：只提取菜品+酱汁 - 绝对不要盘子
+   - 沙拉：只提取蔬菜+调料 - 绝对不要碗/盘
+   - 肉类菜肴：只提取肉+酱汁+配菜 - 绝对不要盘子
+   - 任何液体食物：只提取液体+固体食材 - 绝对不要容器
 
-2. FOR ALL OTHER FOODS - ABSOLUTELY NO CONTAINERS:
-   - Noodles/Pasta: Extract ONLY the noodles, sauce, and ingredients - NO bowls, NO plates
-   - Soup: Extract ONLY the soup liquid and ingredients - NO bowls, NO containers
-   - Stir-fry dishes: Extract ONLY the food - NO plates, NO containers
-   - Salads: Extract ONLY the vegetables and ingredients - NO plates, NO bowls
-   - Meat dishes: Extract ONLY the meat and sauce - NO plates, NO containers
-   - Any liquid foods: Extract ONLY the liquid and solid ingredients - NO containers
+   ❌ 绝对排除所有器皿和杂物：
+   - 绝对不要：碗、盘、杯、盒、碟、容器、包装盒
+   - 绝对不要：筷子、勺子、叉子、刀、餐具、餐巾
+   - 绝对不要：背景、桌子、桌布、装饰品、其他杂物
+   - 原则：只提取能吃的食物内容，其他一律不要
 
-3. STRICT CONTAINER EXCLUSION (except rice bowls):
-   - ABSOLUTELY EXCLUDE: bowls, plates, cups, boxes, containers, packaging
-   - ABSOLUTELY EXCLUDE: chopsticks, spoons, forks, utensils, napkins
-   - ABSOLUTELY EXCLUDE: background, tables, surfaces, decorative items
-   - ONLY extract the pure food contents in their natural form
+2. 液体/半液体食物的特殊处理：
+   - 面汤：提取面条+汤汁+配料，呈现为自然漂浮/悬浮状态
+   - 酱汁类：提取食物+酱汁，呈现为自然流动/包裹状态
+   - 汤品：提取汤液+食材，保持自然液体形态
+   - 确保液体食物在目标器皿中呈现自然倾倒/盛装的效果
 
-4. SPECIAL HANDLING FOR LIQUID/SEMI-LIQUID FOODS:
-   - For noodle soups: Extract noodles + broth + ingredients as floating/suspended elements
-   - For saucy dishes: Extract food + sauce as naturally flowing/coating elements
-   - For soups: Extract liquid + ingredients in natural liquid form
-   - Make these foods appear naturally placed in the target bowl without source containers
+3. 食物放置到目标器皿的要求：
+   - 将提取的纯食物内容自然放置到目标器皿中
+   - 液体食物：呈现自然倾倒/盛放的效果，与器皿完美贴合
+   - 固体食物：呈现自然堆放/摆放的状态，符合重力和物理特性
+   - 保持食物的真实体积和合理比例
+   - 确保食物与目标器皿的边缘无缝融合，自然衔接
 
-5. PLACEMENT IN TARGET BOWL:
-   - Place extracted food contents naturally in the target bowl
-   - For liquid foods: make them appear as if poured into the target bowl
-   - Maintain natural food physics and appearance
-   - Ensure realistic volume and proportions
+4. 食物视觉修复与美化增强 (重点)：
+   ✨ 色彩增强：
+   - 大幅提升食物色彩的鲜艳度和饱和度，让食物更诱人
+   - 增强色彩对比度，让食物层次更分明
+   - 调整色温，让食物呈现温暖、新鲜的色调
 
-6. VISUAL QUALITY & FOOD ENHANCEMENT:
-   - ENHANCE food colors to make them vibrant and appetizing
-   - BRIGHTEN overall food appearance while maintaining natural look
-   - INCREASE saturation and contrast to make food more appealing
-   - ADD subtle gloss/sheen to wet foods (soups, sauces, glazed items)
-   - MAKE vegetables appear fresh and crisp with vivid colors
-   - ENHANCE meat colors to look juicy and well-cooked
-   - BRIGHTEN rice to appear fluffy and fresh (not dull or gray)
-   - IMPROVE overall food presentation to restaurant-quality standards
-   - Adjust lighting, shadows, and reflections to match target environment
-   - Blend edges seamlessly with target bowl interior
-   - Create natural, realistic food placement with professional visual appeal
+   ✨ 质感优化：
+   - 为湿润食物添加自然光泽(汤汁、酱料、油亮的肉类)
+   - 让蔬菜呈现翠绿新鲜、水嫩脆爽的质感
+   - 让肉类呈现多汁饱满、烹饪完美的色泽
+   - 让米饭呈现松软蓬松、颗粒分明的质感(避免暗淡发灰)
+   - 让酱汁呈现浓稠诱人、自然流动的状态
 
-REMEMBER: Only rice bowls (盖浇饭) can include containers. ALL other foods must be extracted WITHOUT any containers, bowls, plates, or utensils.
+   ✨ 光影优化：
+   - 调整食物的光照效果，使其与目标器皿环境匹配
+   - 添加适当的高光和阴影，增强食物的立体感
+   - 优化反射效果，让湿润食物更加真实
 
-Return the final image with properly extracted food contents placed naturally in the target bowl.`;
+   ✨ 整体提升：
+   - 将食物呈现提升至专业餐厅摄影级别
+   - 确保食物看起来新鲜、美味、有食欲
+   - 修复任何模糊、暗淡、不自然的部分
+   - 让最终效果达到商业美食摄影的标准
+
+5. 最终输出要求：
+   - 返回只包含纯食物内容、完美放置在目标器皿中的最终图片
+   - 确保食物与器皿的融合自然真实、毫无违和感
+   - 食物色泽鲜明、质感逼真、极具食欲感
+   - 达到专业美食摄影的视觉标准
+
+关键原则：无论任何食物类型(包括盖浇饭)，都只提取食物本体，绝不提取器皿。将食物完美融合到目标器皿中，并进行专业级的视觉美化。`;
 
     // 转换源图片为Buffer
     const sourceImageBuffer = Buffer.from(await sourceImage.arrayBuffer());
@@ -277,7 +290,7 @@ Return the final image with properly extracted food contents placed naturally in
     console.log(`Starting food replacement job processing for ${job.id}`);
     jobRunner.runJob(job.id);
 
-    return NextResponse.json({ jobId: job.id });
+    return NextResponse.json({ ok: true, jobId: job.id });
   } catch (error) {
     console.error('Food replacement error:', error);
     return NextResponse.json(

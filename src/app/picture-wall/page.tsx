@@ -4,9 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, Upload, Images, Download, User, Sparkles } from 'lucide-react';
@@ -25,29 +22,22 @@ interface JobStatus {
     reversePrompt?: {
       summary: string;
       prompt: string;
-      enhancedPrompt: string;
+      originalPrompt: string;
     };
   };
   error?: string;
+  // reversePrompt 在处理过程中也存储在顶层
+  reversePrompt?: {
+    fullResponse: string;
+    summary: string;
+    extractedPrompt: string;
+  };
 }
-
-const styleThemes = [
-  { value: 'food', label: '美食主题', description: '突出食物的色彩和质感' },
-  { value: 'warm', label: '温馨家庭', description: '温暖舒适的家庭氛围' },
-  { value: 'modern', label: '现代简约', description: '简洁现代的设计风格' },
-  { value: 'traditional', label: '传统经典', description: '经典传统的中式风格' },
-  { value: 'vibrant', label: '活力青春', description: '充满活力的年轻风格' },
-  { value: 'elegant', label: '优雅精致', description: '高端优雅的精致风格' }
-];
-
-
 
 export default function PictureWallPage() {
   const router = useRouter();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
-  const [styleTheme, setStyleTheme] = useState('food');
-  const [customPrompt, setCustomPrompt] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
 
@@ -77,8 +67,6 @@ export default function PictureWallPage() {
     setIsProcessing(true);
     const formData = new FormData();
     formData.append('avatar', uploadedFile);
-    formData.append('styleTheme', styleTheme);
-    formData.append('customPrompt', customPrompt);
 
     try {
       const response = await fetch('/api/picture-wall', {
@@ -104,24 +92,27 @@ export default function PictureWallPage() {
       try {
         const response = await fetch(`/api/jobs/${jobId}`);
         const data = await response.json();
-        
-        if (data.ok) {
-          setJobStatus(data.data);
-          
-          if (data.data.status === 'completed') {
+
+        if (data.ok && data.job) {
+          setJobStatus(data.job);
+
+          if (data.job.status === 'succeeded') {
             setIsProcessing(false);
-          } else if (data.data.status === 'failed') {
+          } else if (data.job.status === 'failed') {
             setIsProcessing(false);
           } else {
             setTimeout(poll, 2000);
           }
+        } else {
+          console.error('Invalid job status response:', data);
+          setTimeout(poll, 2000);
         }
       } catch (error) {
         console.error('Polling error:', error);
         setTimeout(poll, 2000);
       }
     };
-    
+
     poll();
   };
 
@@ -196,7 +187,7 @@ export default function PictureWallPage() {
 
                 {previewUrl && (
                   <div className="mt-4">
-                    <Label>头像预览</Label>
+                    <p className="text-sm font-medium text-gray-700 mb-2">头像预览</p>
                     <div className="mt-2 flex justify-center">
                       <img
                         src={previewUrl}
@@ -209,52 +200,23 @@ export default function PictureWallPage() {
               </CardContent>
             </Card>
 
-            {/* Generation Settings */}
+            {/* Generation Button */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Sparkles className="h-5 w-5" />
-                  <span>生成设置</span>
+                  <span>开始生成</span>
                 </CardTitle>
                 <CardDescription>
-                  选择风格主题和自定义要求
+                  上传头像后,系统将自动分析并设计3张风格统一的图片墙
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="style-theme">风格主题</Label>
-                  <Select value={styleTheme} onValueChange={setStyleTheme}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="选择风格主题" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {styleThemes.map((theme) => (
-                        <SelectItem key={theme.value} value={theme.value}>
-                          <div>
-                            <div className="font-medium">{theme.label}</div>
-                            <div className="text-sm text-gray-500">{theme.description}</div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="custom-prompt">自定义要求（可选）</Label>
-                  <Textarea
-                    id="custom-prompt"
-                    value={customPrompt}
-                    onChange={(e) => setCustomPrompt(e.target.value)}
-                    placeholder="描述您希望图片墙体现的特殊要求"
-                    rows={3}
-                  />
-                </div>
-
+              <CardContent>
                 <Button
                   onClick={handleGenerate}
                   disabled={isProcessing || !uploadedFile}
                   className="w-full"
+                  size="lg"
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
                   生成图片墙
@@ -269,7 +231,7 @@ export default function PictureWallPage() {
               <CardHeader>
                 <CardTitle>生成结果</CardTitle>
                 <CardDescription>
-                  将生成3张统一风格的图片，尺寸为3400×4675px
+                  系统将为您设计3张风格统一的专业图片墙
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -379,7 +341,13 @@ export default function PictureWallPage() {
                       </Button>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className={`grid gap-4 ${
+                      jobStatus.result.images.length === 1 ? 'grid-cols-1 max-w-md mx-auto' :
+                      jobStatus.result.images.length === 2 ? 'grid-cols-2' :
+                      jobStatus.result.images.length === 3 ? 'grid-cols-3' :
+                      jobStatus.result.images.length === 4 ? 'grid-cols-2 md:grid-cols-4' :
+                      'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+                    }`}>
                       {jobStatus.result.images.map((image, index) => (
                         <div key={index} className="space-y-2">
                           <img
@@ -401,38 +369,66 @@ export default function PictureWallPage() {
                     </div>
 
                     <div className="text-sm text-gray-600 text-center">
-                      每张图片尺寸：3400×4675px，PNG格式
+                      共生成 {jobStatus.result.images.length} 张图片，每张尺寸：240×330px，PNG格式
                     </div>
 
-                    {/* 反推提示词显示 */}
-                    {jobStatus.result.reversePrompt && (
-                      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                        <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-                          <Sparkles className="h-4 w-4 mr-2 text-purple-600" />
-                          AI分析结果
+                    {/* 图片墙专业价值说明 - 优化版 */}
+                    <div className="mt-6 overflow-hidden rounded-xl border border-orange-100 shadow-lg">
+                      {/* 标题区域 - 渐变背景 */}
+                      <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-amber-600 px-6 py-4">
+                        <h4 className="font-bold text-white flex items-center text-lg">
+                          <Sparkles className="h-5 w-5 mr-2" />
+                          图片墙专业价值说明
                         </h4>
-                        <div className="space-y-3 text-sm">
-                          <div>
-                            <Label className="text-gray-700 font-medium">图片分析摘要：</Label>
-                            <p className="mt-1 text-gray-600 leading-relaxed">
-                              {jobStatus.result.reversePrompt.summary}
-                            </p>
+                      </div>
+
+                      {/* 内容区域 - 白色背景 */}
+                      <div className="bg-white px-6 py-6 space-y-5">
+                        {/* 核心价值点 */}
+                        <div className="space-y-4">
+                          <p className="text-gray-700 leading-relaxed text-[15px]">
+                            我们为店铺上线了专业设计的图片墙，这是
+                            <span className="inline-block mx-1 px-2 py-0.5 bg-orange-100 text-orange-800 font-semibold rounded">
+                              美团平台推荐的核心运营策略之一
+                            </span>
+                            。
+                          </p>
+
+                          {/* 数据展示卡片 */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-4 border border-orange-200">
+                              <div className="text-2xl font-bold text-orange-600 mb-1">+32%</div>
+                              <div className="text-sm text-gray-600">点击率提升</div>
+                            </div>
+                            <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-4 border border-orange-200">
+                              <div className="text-2xl font-bold text-orange-600 mb-1">+28%</div>
+                              <div className="text-sm text-gray-600">停留时间延长</div>
+                            </div>
                           </div>
-                          <div>
-                            <Label className="text-gray-700 font-medium">提取的设计提示词：</Label>
-                            <p className="mt-1 text-gray-600 leading-relaxed">
-                              {jobStatus.result.reversePrompt.prompt}
-                            </p>
-                          </div>
-                          <div>
-                            <Label className="text-gray-700 font-medium">增强后的生成提示词：</Label>
-                            <p className="mt-1 text-gray-600 leading-relaxed">
-                              {jobStatus.result.reversePrompt.enhancedPrompt}
-                            </p>
+
+                          <p className="text-gray-700 leading-relaxed text-[15px]">
+                            这三张统一风格的图片不仅提升了品牌专业形象，更重要的是
+                            <span className="font-semibold text-orange-700">增强了顾客对食品品质的信任感</span>
+                            ，有效提高了菜品转化率和客单价。
+                          </p>
+                        </div>
+
+                        {/* 建议区域 */}
+                        <div className="mt-5 pt-5 border-t border-gray-200">
+                          <div className="flex items-start space-x-3 bg-amber-50 rounded-lg p-4 border border-amber-200">
+                            <div className="flex-shrink-0 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center text-white font-bold">
+                              💡
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-amber-900 mb-1">使用建议</p>
+                              <p className="text-sm text-amber-800 leading-relaxed">
+                                将这三张图片设置在店铺首页，获得最佳展示效果，提升顾客第一印象
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
 

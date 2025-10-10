@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,25 +13,54 @@ import {
   SparklesIcon,
   Wand2Icon,
   RefreshCwIcon,
-  BlendIcon
+  BlendIcon,
+  LayersIcon,
+  HardDriveIcon
 } from 'lucide-react';
+import { useState } from 'react';
 
 export default function HomePage() {
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+
+  // 清空所有生成的图片文件
+  const cleanupGeneratedImages = async () => {
+    if (!confirm('确定要清空所有生成的图片吗？这将删除服务器上的所有生成图片文件以节省空间，但不会影响各功能的正常使用。')) {
+      return;
+    }
+
+    setIsCleaningUp(true);
+
+    try {
+      const response = await fetch('/api/files/cleanup', {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.ok) {
+        console.log('清理成功:', data);
+        alert(
+          `系统清理完成！\n\n` +
+          `🗑️ 删除文件: ${data.deletedCount} 个\n` +
+          `💾 释放空间: ${data.totalSizeMB}MB\n\n` +
+          `系统已恢复到干净状态，所有功能均可正常使用。${data.errors ? `\n⚠️ 注意: 部分文件删除失败` : ''}`
+        );
+      } else {
+        console.error('清理失败:', data);
+        alert(`系统清理失败: ${data.error || data.details || '未知错误'}\n\n请稍后重试或联系技术支持。`);
+      }
+    } catch (error) {
+      console.error('清理请求失败:', error);
+      alert('清理请求失败，请检查网络连接后重试。');
+    } finally {
+      setIsCleaningUp(false);
+    }
+  };
+
   const features = [
     {
-      id: 'product-image',
-      title: '单品图抠图换背景',
-      description: '智能抠图并更换背景，提升外卖单品图的高清感和设计感',
-      icon: ImageIcon,
-      href: '/product-image',
-      badge: 'F1',
-      color: 'bg-gradient-to-br from-blue-500 to-indigo-600',
-      outputSize: '1200×900px',
-      features: ['智能抠图', '背景替换', '清晰增强', '多种背景选择']
-    },
-    {
       id: 'logo-studio',
-      title: 'Logo设计工作室',
+      title: 'Logo设计工作室（三件套）',
       description: '参考Logo反推提示词，生成店铺Logo、店招和海报',
       icon: PaletteIcon,
       href: '/logo-studio',
@@ -40,7 +71,7 @@ export default function HomePage() {
     },
     {
       id: 'signboard',
-      title: '门头招牌文字替换',
+      title: '门头招牌文字替换（P门头）',
       description: '上传门头照片，智能替换文字内容，实现拟真P图效果',
       icon: TypeIcon,
       href: '/signboard',
@@ -51,7 +82,7 @@ export default function HomePage() {
     },
     {
       id: 'picture-wall',
-      title: '图片墙生成',
+      title: '图片墙生成（图片墙三张）',
       description: '上传店铺头像，反推风格并生成三张统一风格的图片墙',
       icon: LayoutGridIcon,
       href: '/picture-wall',
@@ -61,19 +92,8 @@ export default function HomePage() {
       features: ['风格分析', '统一设计', '批量生成', '品牌一致性']
     },
     {
-      id: 'product-refine',
-      title: '产品精修',
-      description: '专业菜品图片精修，统一45度角视角，色彩鲜艳，商业级品质提升',
-      icon: Wand2Icon,
-      href: '/product-refine',
-      badge: 'F5',
-      color: 'bg-gradient-to-br from-pink-500 to-rose-600',
-      outputSize: '1200×900px',
-      features: ['45度视角', '菜品补全', '瑕疵去除', '色彩鲜艳', '批量处理']
-    },
-    {
       id: 'food-replacement',
-      title: '食物替换工具',
+      title: '食物替换工具（外卖全店图制作）',
       description: '将源图片中的食物智能替换到目标图片的碗中，AI自动匹配光影和透视',
       icon: RefreshCwIcon,
       href: '/food-replacement',
@@ -84,7 +104,7 @@ export default function HomePage() {
     },
     {
       id: 'background-fusion',
-      title: '背景融合工具',
+      title: '背景融合工具（不需要碗的单品图）',
       description: '将美食完美融合到目标背景中，创造令人垂涎的视觉效果，增强食欲感',
       icon: BlendIcon,
       href: '/background-fusion',
@@ -92,6 +112,17 @@ export default function HomePage() {
       color: 'bg-gradient-to-br from-red-500 to-pink-600',
       outputSize: '1200×900px',
       features: ['背景融合', '食欲增强', '光影匹配', '商业品质', '批量处理']
+    },
+    {
+      id: 'multi-fusion',
+      title: '多图融合工具（外卖套餐图制作）',
+      description: '将多张美食图片智能融合到同一背景中，生成高度一致的套餐图，完美展示美食组合',
+      icon: LayersIcon,
+      href: '/multi-fusion',
+      badge: 'F8',
+      color: 'bg-gradient-to-br from-purple-500 to-pink-600',
+      outputSize: '1200×900px',
+      features: ['多图融合', '套餐展示', '风格统一', '商业品质', '智能排列']
     }
   ];
 
@@ -117,9 +148,22 @@ export default function HomePage() {
                 美工设计系统
               </h1>
             </div>
-            <Badge variant="secondary" className="text-sm px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-200 shadow-sm">
-              外卖商家图片智能设计生成系统
-            </Badge>
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={cleanupGeneratedImages}
+                disabled={isCleaningUp}
+                className="flex items-center gap-2 text-orange-600 border-orange-600 hover:bg-orange-50 shadow-sm"
+                title="清理服务器上所有生成的图片文件，释放磁盘空间"
+              >
+                <HardDriveIcon className="w-4 h-4" />
+                {isCleaningUp ? '清理中...' : '清理磁盘'}
+              </Button>
+              <Badge variant="secondary" className="text-sm px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-200 shadow-sm">
+                外卖商家图片智能设计生成系统
+              </Badge>
+            </div>
           </div>
         </div>
       </header>
@@ -159,7 +203,7 @@ export default function HomePage() {
         <div className="container mx-auto px-4 relative z-10">
           <div className="text-center mb-16">
             <h3 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              7大核心功能模块
+              6大核心功能模块
             </h3>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               专业AI技术驱动，为您的外卖业务提供全方位的视觉设计解决方案

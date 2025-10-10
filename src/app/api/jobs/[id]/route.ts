@@ -43,7 +43,7 @@ export async function GET(
     
     return NextResponse.json({
       ok: true,
-      data: {
+      job: {
         id: job.id,
         type: job.type,
         status: job.status,

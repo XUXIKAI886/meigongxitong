@@ -19,18 +19,44 @@ class BatchBackgroundFusionProcessor {
     for (let i = 0; i < sourceImageBuffers.length; i++) {
       try {
         // 更新进度
-        const progress = Math.round(((i + 1) / total) * 100);
+        const progress = Math.round(((i + 0.5) / total) * 100);
         JobQueue.updateJob(jobData.id, { progress });
 
         // 转换Buffer为base64 data URL
         const sourceImageBase64 = `data:image/png;base64,${sourceImageBuffers[i].toString('base64')}`;
         const targetImageBase64 = `data:image/png;base64,${targetImageBuffer.toString('base64')}`;
 
-        const response = await client.replaceFoodInBowl({
-          sourceImage: sourceImageBase64,
-          targetImage: targetImageBase64,
-          prompt,
-        });
+        console.log(`Processing image ${i + 1}/${total}, size: ${sourceImageBuffers[i].length} bytes`);
+
+        // 重试机制：最多重试3次
+        let response;
+        let lastError;
+        for (let retry = 0; retry < 3; retry++) {
+          try {
+            console.log(`Background Fusion Batch - Attempt ${retry + 1}/3 for image ${i + 1}`);
+            response = await client.replaceFoodInBowl({
+              sourceImage: sourceImageBase64,
+              targetImage: targetImageBase64,
+              prompt,
+            });
+            console.log(`Background Fusion Batch - Successfully processed image ${i + 1} on attempt ${retry + 1}`);
+            break; // 成功则跳出重试循环
+          } catch (error) {
+            lastError = error;
+            console.log(`Background Fusion Batch - Attempt ${retry + 1} failed for image ${i + 1}:`, error.message);
+            if (retry < 2) {
+              console.log(`Background Fusion Batch - Waiting 2 seconds before retry ${retry + 2} for image ${i + 1}`);
+              // 等待2秒后重试
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            } else {
+              console.log(`Background Fusion Batch - All 3 attempts failed for image ${i + 1}, final error:`, error.message);
+            }
+          }
+        }
+
+        if (!response) {
+          throw lastError;
+        }
 
         if (response.data && response.data.length > 0) {
           const imageData = response.data[0];
@@ -63,6 +89,8 @@ class BatchBackgroundFusionProcessor {
             width: 1200,
             height: 900
           });
+
+          console.log(`Successfully processed image ${i + 1}/${total}`);
         } else {
           results.push({
             sourceImageIndex: i,
@@ -70,13 +98,22 @@ class BatchBackgroundFusionProcessor {
             error: 'No fusion image generated',
           });
         }
+
+        // 更新完成进度
+        const finalProgress = Math.round(((i + 1) / total) * 100);
+        JobQueue.updateJob(jobData.id, { progress: finalProgress });
+
       } catch (error) {
-        console.error(`Background fusion failed for image ${i}:`, error);
+        console.error(`Background fusion failed for image ${i} after 3 attempts:`, error);
         results.push({
           sourceImageIndex: i,
           status: 'failed',
           error: error instanceof Error ? error.message : 'Unknown error',
         });
+
+        // 即使失败也要更新进度
+        const finalProgress = Math.round(((i + 1) / total) * 100);
+        JobQueue.updateJob(jobData.id, { progress: finalProgress });
       }
     }
 
@@ -96,6 +133,10 @@ export async function POST(request: NextRequest) {
     const sourceImages = formData.getAll('sourceImages') as File[];
     const targetImage = formData.get('targetImage') as File;
     const targetImageUrl = formData.get('targetImageUrl') as string;
+
+    console.log('Batch fusion - Source images count:', sourceImages.length);
+    console.log('Batch fusion - Target image:', targetImage ? 'uploaded file' : 'template URL');
+    console.log('Batch fusion - Target URL:', targetImageUrl);
 
     if (!sourceImages || sourceImages.length === 0) {
       return NextResponse.json(
@@ -215,8 +256,12 @@ Generate a single, perfectly fused image that combines the best qualities of bot
       prompt,
     });
 
+    console.log('Created batch fusion job:', job.id);
+
     // 启动任务处理
     jobRunner.runJob(job.id);
+
+    console.log('Started batch fusion job processing:', job.id);
 
     return NextResponse.json({
       jobId: job.id,

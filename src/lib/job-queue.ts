@@ -2,8 +2,19 @@ import { Job } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 // In-memory job storage (in production, use Redis or database)
-const jobs = new Map<string, Job>();
-const userJobs = new Map<string, Set<string>>();
+// 使用globalThis避免热重载时丢失作业数据
+const globalForJobs = globalThis as unknown as {
+  jobs: Map<string, Job> | undefined;
+  userJobs: Map<string, Set<string>> | undefined;
+};
+
+const jobs = globalForJobs.jobs ?? new Map<string, Job>();
+const userJobs = globalForJobs.userJobs ?? new Map<string, Set<string>>();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForJobs.jobs = jobs;
+  globalForJobs.userJobs = userJobs;
+}
 
 export class JobQueue {
   // Create a new job
@@ -51,11 +62,21 @@ export class JobQueue {
     updates: Partial<Pick<Job, 'status' | 'progress' | 'result' | 'error'>>
   ): Job | undefined {
     const job = jobs.get(jobId);
-    if (!job) return undefined;
-    
+    if (!job) {
+      console.log(`updateJob: Job ${jobId} not found`);
+      return undefined;
+    }
+
+    console.log(`updateJob: Updating job ${jobId}:`, {
+      oldStatus: job.status,
+      newUpdates: updates
+    });
+
     Object.assign(job, updates, { updatedAt: new Date() });
     jobs.set(jobId, job);
-    
+
+    console.log(`updateJob: Job ${jobId} updated successfully, new status: ${job.status}`);
+
     return job;
   }
   
@@ -207,19 +228,19 @@ export class JobRunner {
         result,
       });
 
-      // 延迟清理任务，给前端足够时间获取结果
-      // 增加清理延迟到15分钟，确保前端轮询有足够时间
-      setTimeout(() => {
-        const currentJob = JobQueue.getJob(jobId);
-        if (currentJob && currentJob.status === 'succeeded') {
-          JobQueue.removeJob(jobId);
-          console.log(`Job ${jobId} cleaned up after completion (15min delay)`);
-        } else if (currentJob) {
-          console.log(`Job ${jobId} not cleaned up - status: ${currentJob.status}`);
-        } else {
-          console.log(`Job ${jobId} already cleaned up by global cleanup`);
-        }
-      }, 900000); // 15分钟后清理，确保前端有足够时间获取结果
+      // 暂时不自动清理成功的任务，让前端有充分时间获取结果
+      // 依靠全局清理机制（15分钟后）清理
+      // setTimeout(() => {
+      //   const currentJob = JobQueue.getJob(jobId);
+      //   if (currentJob && currentJob.status === 'succeeded') {
+      //     JobQueue.removeJob(jobId);
+      //     console.log(`Job ${jobId} cleaned up after completion (15min delay)`);
+      //   } else if (currentJob) {
+      //     console.log(`Job ${jobId} not cleaned up - status: ${currentJob.status}`);
+      //   } else {
+      //     console.log(`Job ${jobId} already cleaned up by global cleanup`);
+      //   }
+      // }, 900000); // 15分钟后清理，确保前端有足够时间获取结果
     } catch (error) {
       console.error(`Job ${jobId} failed:`, error);
       JobQueue.updateJob(jobId, {

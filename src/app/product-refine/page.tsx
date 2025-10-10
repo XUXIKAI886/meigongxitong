@@ -139,9 +139,9 @@ export default function ProductRefinePage() {
         const apiResponse = await response.json();
         console.log('Raw API response:', apiResponse);
 
-        // 处理API响应格式：{ ok: true, data: { ... } }
-        if (apiResponse.ok && apiResponse.data) {
-          const status: JobStatus = apiResponse.data;
+        // 处理API响应格式：{ ok: true, job: { ... } }
+        if (apiResponse.ok && apiResponse.job) {
+          const status: JobStatus = apiResponse.job;
           setJobStatus(status);
 
           console.log('Job status updated:', {

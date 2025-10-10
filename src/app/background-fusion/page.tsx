@@ -164,16 +164,18 @@ export default function BackgroundFusionPage() {
       attempts++;
 
       try {
+        console.log(`轮询第${attempts}次，作业ID: ${jobId}`);
         const response = await fetch(`/api/jobs/${jobId}`);
 
         if (!response.ok) {
+          console.error(`轮询失败，HTTP状态: ${response.status}`);
           throw new Error(`HTTP ${response.status}`);
         }
 
         const apiResponse = await response.json();
 
-        if (apiResponse.ok && apiResponse.data) {
-          const job = apiResponse.data;
+        if (apiResponse.ok && apiResponse.job) {
+          const job = apiResponse.job;
 
           console.log(`轮询第${attempts}次，任务状态:`, job.status, '进度:', job.progress);
 
@@ -272,14 +274,19 @@ export default function BackgroundFusionPage() {
       }
 
       const endpoint = isBatchMode ? '/api/background-fusion/batch' : '/api/background-fusion';
+      console.log('发送请求到:', endpoint);
+      console.log('批量模式:', isBatchMode);
+
       const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
 
       const data = await response.json();
+      console.log('API响应:', data);
 
       if (response.ok) {
+        console.log('收到作业ID:', data.jobId);
         setCurrentJobId(data.jobId);
         setStatusMessage('任务已创建，开始处理...');
         pollJobStatus(data.jobId);

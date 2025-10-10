@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ImageApiClient, ChatApiClient, withRetry, rateLimiter, handleApiError } from '@/lib/api-client';
+import { ImageApiClient, ChatApiClient, withRetry, rateLimiter, handleApiError } from '@/lib/api';
 import { JobQueue, jobRunner } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
 import { config } from '@/lib/config';
@@ -37,7 +37,7 @@ class PictureWallProcessor {
     });
 
     const chatResponse = await withRetry(async () => {
-      return await this.chatClient.createCompletion({
+      return await this.chatClient.createChatCompletion({
         model: config.chat.modelName,
         messages: promptRequest.messages,
         max_tokens: 1500, // 增加token限制，确保获得完整的设计提示词
@@ -71,73 +71,99 @@ class PictureWallProcessor {
       length: finalPrompt.length,
       content: finalPrompt
     });
-    
-    // Generate 3 images for picture wall
+
+    // Generate 3 images for picture wall with different compositions
     const images = [];
     const targetSize = parseSize(config.images.sizes.pictureWall);
 
+    // 为每张图片定义不同的构图变化
+    const compositionVariations = [
+      '主视角正面构图，文字排版在顶部，食物居中特写展示',
+      '侧面45度角构图，文字排版在左侧或右侧，食物局部细节展示',
+      '俯视角度构图，文字排版在底部，食物整体摆盘展示'
+    ];
+
     for (let i = 0; i < 3; i++) {
-      // Update progress for each image generation
-      const progressBase = 30 + (i * 20); // 30%, 50%, 70%
-      JobQueue.updateJob(job.id, { progress: progressBase });
+      // Update progress for each image
+      const progress = 30 + Math.floor((i / 3) * 60); // 30% → 90%
+      JobQueue.updateJob(job.id, { progress });
 
-      // Use the same reverse prompt for all 3 images
-      const imagePrompt = finalPrompt; // 三张图片使用相同的反推提示词
+      // 为每张图片添加不同的构图要求
+      const enhancedPrompt = `${finalPrompt}
 
-      console.log(`Generating image ${i + 1}:`, {
-        promptLength: imagePrompt.length,
-        prompt: imagePrompt.substring(0, 100) + '...', // 只显示前100字符
+【第${i + 1}张图片构图要求】
+${compositionVariations[i]}
+确保文字排版、拍摄角度、食物展示方式与其他图片明显不同，但保持整体风格统一。`;
+
+      console.log(`Generating image ${i + 1}/3 with composition variation:`, {
+        variation: compositionVariations[i],
+        promptLength: enhancedPrompt.length,
         size: config.images.sizes.pictureWall,
         model: process.env.IMAGE_MODEL_NAME
       });
 
-      const response = await withRetry(async () => {
-        return await this.imageClient.generateImage({
-          prompt: imagePrompt, // 使用完整的反推提示词
-          size: config.images.sizes.pictureWall,
-          // 移除可能不支持的参数
-          // n: 1,
-          // quality: 'hd',
-          // style: 'vivid',
+      try {
+        const response = await withRetry(async () => {
+          return await this.imageClient.generateImage({
+            prompt: enhancedPrompt,
+            size: config.images.sizes.pictureWall,
+          });
         });
-      });
 
-      const imageData = response.data[0];
-      if (!imageData.url) {
-        throw new Error(`No image URL in response for image ${i + 1}`);
+        if (!response.data || response.data.length === 0) {
+          console.error(`No image data returned for image ${i + 1}`);
+          continue;
+        }
+
+        const imageData = response.data[0];
+        if (!imageData.url) {
+          console.error(`No URL in response for image ${i + 1}`);
+          continue;
+        }
+
+        // Download and process the generated image
+        const imageResponse = await fetch(imageData.url);
+        if (!imageResponse.ok) {
+          console.error(`Failed to download image ${i + 1}`);
+          continue;
+        }
+
+        const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+
+        // Resize to exact dimensions
+        const processedBuffer = await resizeImage(
+          imageBuffer,
+          targetSize.width,
+          targetSize.height,
+          { fit: 'cover' }
+        );
+
+        // Save the processed image
+        const savedFile = await FileManager.saveBuffer(
+          processedBuffer,
+          `picture-wall-${i + 1}-${Date.now()}.png`,
+          'image/png',
+          true // Use public/generated directory
+        );
+
+        images.push({
+          imageUrl: savedFile.url,
+          width: targetSize.width,
+          height: targetSize.height,
+        });
+
+        console.log(`Successfully generated and saved image ${i + 1}/3`);
+      } catch (error) {
+        console.error(`Error generating image ${i + 1}:`, error);
+        // Continue with next image even if one fails
       }
+    }
 
-      // Update progress: Image generated, now processing
-      JobQueue.updateJob(job.id, { progress: progressBase + 10 });
+    console.log(`Final result: ${images.length}/3 images generated successfully`);
 
-      // Download and process the generated image
-      const imageResponse = await fetch(imageData.url);
-      if (!imageResponse.ok) {
-        throw new Error(`Failed to download generated image ${i + 1}`);
-      }
-      
-      const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-      
-      // Resize to exact dimensions
-      const processedBuffer = await resizeImage(
-        imageBuffer,
-        targetSize.width,
-        targetSize.height,
-        { fit: 'cover' }
-      );
-      
-      // Save processed image
-      const savedFile = await FileManager.saveBuffer(
-        processedBuffer,
-        `picture-wall-${i + 1}-${Date.now()}.png`,
-        'image/png'
-      );
-      
-      images.push({
-        imageUrl: savedFile.url,
-        width: targetSize.width,
-        height: targetSize.height,
-      });
+    // If no images were successfully generated, throw error
+    if (images.length === 0) {
+      throw new Error('Failed to generate any images');
     }
 
     // Final progress update
@@ -148,7 +174,7 @@ class PictureWallProcessor {
       reversePrompt: {
         summary,
         prompt,
-        originalPrompt: prompt // 使用原始反推提示词
+        originalPrompt: prompt
       }
     };
   }
@@ -199,11 +225,10 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Parse form data
+    // Parse FormData
     const formData = await request.formData();
     const avatarFile = formData.get('avatar') as File;
 
-    // Validate required fields
     if (!avatarFile) {
       return NextResponse.json(
         {
@@ -215,11 +240,25 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
-    // Convert avatar to base64 for processing
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(avatarFile.type)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Invalid file type. Allowed: ${validTypes.join(', ')}`,
+          requestId,
+          durationMs: Date.now() - startTime,
+        } as ApiResponse,
+        { status: 400 }
+      );
+    }
+
+    // Convert file to buffer
     const avatarBuffer = Buffer.from(await avatarFile.arrayBuffer());
 
-    // Create job with base64 image data
+    // Create job with buffer data
     const job = JobQueue.createJob('picture-wall', {
       avatarImageBuffer: avatarBuffer.toString('base64'),
       avatarImageType: avatarFile.type,
