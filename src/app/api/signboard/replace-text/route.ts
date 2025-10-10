@@ -229,29 +229,47 @@ export async function POST(request: NextRequest) {
     // Convert image to base64 for processing
     const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
 
-    // Create job
-    const job = JobQueue.createJob('signboard-replace', {
+    const payload = {
       sourceImageBuffer: imageBuffer.toString('base64'),
       sourceImageType: imageFile.type,
       originalText,
       newText,
-    }, clientIp);
+    };
 
-    console.log(`Created job ${job.id} for signboard text replacement`);
+    // Vercel 环境检测: 同步处理而非异步作业队列
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
-    // Start job processing
-    console.log(`Starting job processing for ${job.id}`);
-    jobRunner.runJob(job.id);
-    
-    return NextResponse.json({
-      ok: true,
-      data: {
-        jobId: job.id,
-        status: job.status,
-      },
-      requestId,
-      durationMs: Date.now() - startTime,
-    } as ApiResponse);
+    if (isVercel) {
+      // Vercel 模式: 同步处理,直接返回结果
+      console.log('Vercel环境检测: 使用同步处理模式');
+
+      const processor = new SignboardTextReplaceProcessor();
+      const result = await processor.process({ id: `vercel-${Date.now()}`, payload } as any);
+
+      return NextResponse.json({
+        ok: true,
+        data: result,
+        requestId,
+        durationMs: Date.now() - startTime,
+      } as ApiResponse);
+    } else {
+      // 本地模式: 异步作业队列
+      const job = JobQueue.createJob('signboard-replace', payload, clientIp);
+
+      console.log(`Created job ${job.id} for signboard text replacement`);
+      console.log(`Starting job processing for ${job.id}`);
+      jobRunner.runJob(job.id);
+
+      return NextResponse.json({
+        ok: true,
+        data: {
+          jobId: job.id,
+          status: job.status,
+        },
+        requestId,
+        durationMs: Date.now() - startTime,
+      } as ApiResponse);
+    }
     
   } catch (error) {
     console.error('Signboard replace text API error:', error);

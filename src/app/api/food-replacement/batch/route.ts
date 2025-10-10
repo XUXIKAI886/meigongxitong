@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProductRefineApiClient } from '@/lib/api-client';
 import { jobRunner, JobQueue } from '@/lib/job-queue';
+import { FileManager } from '@/lib/upload';
 import { config } from '@/lib/config';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, mkdir, readFile } from 'fs/promises';
@@ -35,9 +36,11 @@ class BatchFoodReplacementProcessor {
 
     for (let i = 0; i < sourceImageBuffers.length; i++) {
       try {
-        // 更新进度
-        const progress = Math.round(((i + 1) / sourceImageBuffers.length) * 100);
-        JobQueue.updateJob(jobData.id, { progress });
+        // 更新进度 (仅本地模式)
+        if (!jobData.id.startsWith('vercel-')) {
+          const progress = Math.round(((i + 1) / sourceImageBuffers.length) * 100);
+          JobQueue.updateJob(jobData.id, { progress });
+        }
 
         console.log(`Processing source image ${i + 1}/${sourceImageBuffers.length}, size: ${sourceImageBuffers[i].length} bytes`);
 
@@ -105,16 +108,18 @@ class BatchFoodReplacementProcessor {
           throw new Error(`No valid image data found in response for source image ${i + 1}`);
         }
 
-        // 保存生成的图片
+        // 保存生成的图片 (使用 FileManager 自动适配 Vercel)
         const imageBuffer = Buffer.from(base64Data, 'base64');
-        const filename = `food-replacement-${i + 1}-${uuidv4()}.png`;
-        const filepath = path.join(generatedDir, filename);
-        
-        await writeFile(filepath, imageBuffer);
+        const savedFile = await FileManager.saveBuffer(
+          imageBuffer,
+          `food-replacement-batch-${i + 1}-${Date.now()}.png`,
+          'image/png',
+          true
+        );
 
         const result = {
           sourceImageIndex: i,
-          imageUrl: `/generated/${filename}`,
+          imageUrl: savedFile.url,
           width: 1200,
           height: 900,
           originalSourceType: sourceImageTypes[i]
@@ -310,24 +315,41 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 创建任务
-    const job = JobQueue.createJob('batch-food-replacement', {
+    const payload = {
       sourceImageBuffers,
       sourceImageTypes,
       targetImageBuffer: targetImageBuffer.toString('base64'),
       targetImageType,
       prompt: prompt.trim(),
-    }, clientIp);
+    };
 
-    // 开始任务处理
-    console.log(`Starting batch food replacement job processing for ${job.id} with ${sourceImageFiles.length} source images`);
-    jobRunner.runJob(job.id);
+    // Vercel 环境检测: 同步处理而非异步作业队列
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
-    return NextResponse.json({
-      ok: true,
-      jobId: job.id,
-      message: `批量食物替换任务已创建，正在处理 ${sourceImageFiles.length} 张源图片...`
-    });
+    if (isVercel) {
+      // Vercel 模式: 同步处理,直接返回结果
+      console.log('Vercel环境检测: 使用同步处理模式');
+
+      const processor = new BatchFoodReplacementProcessor();
+      const result = await processor.process({ id: `vercel-${Date.now()}`, payload } as any);
+
+      return NextResponse.json({
+        ok: true,
+        data: result
+      });
+    } else {
+      // 本地模式: 异步作业队列
+      const job = JobQueue.createJob('batch-food-replacement', payload, clientIp);
+
+      console.log(`Starting batch food replacement job processing for ${job.id} with ${sourceImageFiles.length} source images`);
+      jobRunner.runJob(job.id);
+
+      return NextResponse.json({
+        ok: true,
+        jobId: job.id,
+        message: `批量食物替换任务已创建，正在处理 ${sourceImageFiles.length} 张源图片...`
+      });
+    }
 
   } catch (error) {
     console.error('Batch food replacement error:', error);

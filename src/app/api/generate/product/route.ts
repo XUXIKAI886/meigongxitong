@@ -64,13 +64,20 @@ class ProductGenerationProcessor {
     }
     const targetSize = parseSize(outputSize);
 
-    // Resize to exact dimensions if needed
-    const processedBuffer = await resizeImage(
-      generatedImageBuffer,
-      targetSize.width,
-      targetSize.height,
-      { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } }
-    );
+    // Resize to exact dimensions if needed (跳过Sharp在Vercel上,因为不可用)
+    let processedBuffer: Buffer;
+    try {
+      processedBuffer = await resizeImage(
+        generatedImageBuffer,
+        targetSize.width,
+        targetSize.height,
+        { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } }
+      );
+    } catch (error) {
+      // Sharp不可用时(Vercel),直接使用原图
+      console.log('Sharp不可用,使用原图:', error);
+      processedBuffer = generatedImageBuffer;
+    }
 
     // Save processed image
     const savedFile = await FileManager.saveBuffer(
@@ -213,27 +220,46 @@ export async function POST(request: NextRequest) {
     const background = backgroundData ? JSON.parse(backgroundData) : { mode: backgroundMode };
     const enhance = enhanceData ? JSON.parse(enhanceData) : undefined;
 
-    // Create job with image buffer as base64 string for serialization
-    const job = JobQueue.createJob('generate-product', {
+    const payload = {
       sourceImageBuffer: imageBuffer.toString('base64'),
       sourceImageType: imageFile.type,
       background,
       enhance,
       outputSize,
-    }, clientIp);
-    
-    // Start job processing
-    jobRunner.runJob(job.id);
-    
-    return NextResponse.json({
-      ok: true,
-      data: {
-        jobId: job.id,
-        status: job.status,
-      },
-      requestId,
-      durationMs: Date.now() - startTime,
-    } as ApiResponse);
+    };
+
+    // Vercel 环境检测: 同步处理而非异步作业队列
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+    if (isVercel) {
+      // Vercel 模式: 同步处理,直接返回结果
+      console.log('Vercel环境检测: 使用同步处理模式');
+
+      const processor = new ProductGenerationProcessor();
+      const result = await processor.process({ id: `vercel-${Date.now()}`, payload } as any);
+
+      return NextResponse.json({
+        ok: true,
+        data: result,
+        requestId,
+        durationMs: Date.now() - startTime,
+      } as ApiResponse);
+    } else {
+      // 本地模式: 异步作业队列
+      const job = JobQueue.createJob('generate-product', payload, clientIp);
+
+      jobRunner.runJob(job.id);
+
+      return NextResponse.json({
+        ok: true,
+        data: {
+          jobId: job.id,
+          status: job.status,
+        },
+        requestId,
+        durationMs: Date.now() - startTime,
+      } as ApiResponse);
+    }
     
   } catch (error) {
     console.error('Product generation API error:', error);

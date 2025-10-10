@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProductRefineApiClient } from '@/lib/api-client';
 import { jobRunner, JobQueue } from '@/lib/job-queue';
+import { FileManager } from '@/lib/upload';
 import { config } from '@/lib/config';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, mkdir, readFile } from 'fs/promises';
@@ -23,9 +24,11 @@ class BatchBackgroundFusionProcessor {
     
     for (let i = 0; i < sourceImageBuffers.length; i++) {
       try {
-        // 更新进度
-        const progress = Math.round(((i + 0.5) / total) * 100);
-        JobQueue.updateJob(jobData.id, { progress });
+        // 更新进度 (仅本地模式)
+        if (!jobData.id.startsWith('vercel-')) {
+          const progress = Math.round(((i + 0.5) / total) * 100);
+          JobQueue.updateJob(jobData.id, { progress });
+        }
 
         // 转换Buffer为base64 data URL
         const sourceImageBase64 = `data:image/png;base64,${sourceImageBuffers[i].toString('base64')}`;
@@ -78,21 +81,19 @@ class BatchBackgroundFusionProcessor {
             throw new Error('No valid image data found in response');
           }
 
-          // 保存生成的图片
+          // 保存生成的图片 (使用 FileManager 自动适配 Vercel)
           const imageBuffer = Buffer.from(base64Data, 'base64');
-          const filename = `background-fusion-batch-${uuidv4()}.png`;
-          const outputDir = path.join(process.cwd(), 'public', 'generated');
-
-          // 确保输出目录存在
-          await mkdir(outputDir, { recursive: true });
-
-          const outputPath = path.join(outputDir, filename);
-          await writeFile(outputPath, imageBuffer);
+          const savedFile = await FileManager.saveBuffer(
+            imageBuffer,
+            `background-fusion-batch-${i + 1}-${Date.now()}.png`,
+            'image/png',
+            true
+          );
 
           results.push({
             sourceImageIndex: i,
             status: 'success',
-            imageUrl: `/generated/${filename}`,
+            imageUrl: savedFile.url,
             width: 1200,
             height: 900
           });
@@ -106,9 +107,11 @@ class BatchBackgroundFusionProcessor {
           });
         }
 
-        // 更新完成进度
-        const finalProgress = Math.round(((i + 1) / total) * 100);
-        JobQueue.updateJob(jobData.id, { progress: finalProgress });
+        // 更新完成进度 (仅本地模式)
+        if (!jobData.id.startsWith('vercel-')) {
+          const finalProgress = Math.round(((i + 1) / total) * 100);
+          JobQueue.updateJob(jobData.id, { progress: finalProgress });
+        }
 
       } catch (error) {
         console.error(`Background fusion failed for image ${i} after 3 attempts:`, error);
@@ -118,9 +121,11 @@ class BatchBackgroundFusionProcessor {
           error: error instanceof Error ? error.message : 'Unknown error',
         });
 
-        // 即使失败也要更新进度
-        const finalProgress = Math.round(((i + 1) / total) * 100);
-        JobQueue.updateJob(jobData.id, { progress: finalProgress });
+        // 即使失败也要更新进度 (仅本地模式)
+        if (!jobData.id.startsWith('vercel-')) {
+          const finalProgress = Math.round(((i + 1) / total) * 100);
+          JobQueue.updateJob(jobData.id, { progress: finalProgress });
+        }
       }
     }
 
@@ -256,25 +261,40 @@ FINAL RESULT REQUIREMENTS:
 
 Generate a single, perfectly fused image that combines the best qualities of both source and target images while making the food look absolutely delicious and naturally integrated into the background scene.`;
 
-    // 创建任务
-    const job = JobQueue.createJob('batch-background-fusion', {
+    const payload = {
       sourceImageBuffers,
       targetImageBuffer,
       prompt,
-    });
+    };
 
-    console.log('Created batch fusion job:', job.id);
+    // Vercel 环境检测: 同步处理而非异步作业队列
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
-    // 启动任务处理
-    jobRunner.runJob(job.id);
+    if (isVercel) {
+      // Vercel 模式: 同步处理,直接返回结果
+      console.log('Vercel环境检测: 使用同步处理模式');
 
-    console.log('Started batch fusion job processing:', job.id);
+      const processor = new BatchBackgroundFusionProcessor();
+      const result = await processor.process({ id: `vercel-${Date.now()}`, payload } as any);
 
-    return NextResponse.json({
-      jobId: job.id,
-      message: '批量背景融合任务已创建',
-      totalImages: sourceImages.length,
-    });
+      return NextResponse.json({
+        ok: true,
+        data: result
+      });
+    } else {
+      // 本地模式: 异步作业队列
+      const job = JobQueue.createJob('batch-background-fusion', payload);
+
+      console.log('Created batch fusion job:', job.id);
+      jobRunner.runJob(job.id);
+      console.log('Started batch fusion job processing:', job.id);
+
+      return NextResponse.json({
+        jobId: job.id,
+        message: '批量背景融合任务已创建',
+        totalImages: sourceImages.length,
+      });
+    }
 
   } catch (error) {
     console.error('Batch background fusion error:', error);
