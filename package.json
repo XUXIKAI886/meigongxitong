@@ -7,7 +7,7 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "npm rebuild sharp"
+    "postinstall": "npm rebuild sharp --ignore-scripts || true"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -36,11 +36,13 @@
     "react-dom": "19.1.0",
     "react-dropzone": "^14.3.8",
     "react-hook-form": "^7.63.0",
-    "sharp": "^0.34.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "uuid": "^13.0.0",
     "zod": "^4.1.11"
+  },
+  "optionalDependencies": {
+    "sharp": "^0.34.4"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

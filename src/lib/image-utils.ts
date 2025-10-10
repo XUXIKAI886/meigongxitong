@@ -1,4 +1,17 @@
-import sharp from 'sharp';
+// ⚠️ Sharp 延迟加载: 避免在Vercel部署时立即加载Sharp模块
+// Sharp是可选依赖,只在实际使用图片处理功能时才加载
+let sharp: typeof import('sharp') | null = null;
+
+async function getSharp() {
+  if (!sharp) {
+    try {
+      sharp = (await import('sharp')).default;
+    } catch (error) {
+      throw new Error('Sharp module not available. Please install sharp or use alternative image processing.');
+    }
+  }
+  return sharp;
+}
 
 // Size parsing and validation
 export function parseSize(sizeString: string): { width: number; height: number } {
@@ -24,8 +37,9 @@ export async function resizeImage(
   } = {}
 ): Promise<Buffer> {
   const { fit = 'cover', background = { r: 255, g: 255, b: 255, alpha: 1 } } = options;
-  
-  return await sharp(inputBuffer)
+  const sharpInstance = await getSharp();
+
+  return await sharpInstance(inputBuffer)
     .resize(targetWidth, targetHeight, { fit, background })
     .png()
     .toBuffer();
@@ -38,7 +52,8 @@ export async function cropImage(
   width: number,
   height: number
 ): Promise<Buffer> {
-  return await sharp(inputBuffer)
+  const sharpInstance = await getSharp();
+  return await sharpInstance(inputBuffer)
     .extract({ left: x, top: y, width, height })
     .png()
     .toBuffer();
@@ -55,7 +70,8 @@ export async function addBackground(
   foregroundBuffer: Buffer,
   backgroundBuffer: Buffer
 ): Promise<Buffer> {
-  return await sharp(backgroundBuffer)
+  const sharpInstance = await getSharp();
+  return await sharpInstance(backgroundBuffer)
     .composite([{ input: foregroundBuffer }])
     .png()
     .toBuffer();
@@ -65,17 +81,18 @@ export async function enhanceImage(
   inputBuffer: Buffer,
   options: { sharpen?: boolean; denoise?: boolean } = {}
 ): Promise<Buffer> {
-  let image = sharp(inputBuffer);
-  
+  const sharpInstance = await getSharp();
+  let image = sharpInstance(inputBuffer);
+
   if (options.sharpen) {
     image = image.sharpen();
   }
-  
+
   if (options.denoise) {
     // Basic noise reduction using blur and unsharp mask
     image = image.blur(0.5).sharpen();
   }
-  
+
   return await image.png().toBuffer();
 }
 
@@ -106,7 +123,8 @@ export function base64ToBuffer(base64String: string): Buffer {
 
 // Get image dimensions
 export async function getImageDimensions(buffer: Buffer): Promise<{ width: number; height: number }> {
-  const metadata = await sharp(buffer).metadata();
+  const sharpInstance = await getSharp();
+  const metadata = await sharpInstance(buffer).metadata();
   if (!metadata.width || !metadata.height) {
     throw new Error('Could not determine image dimensions');
   }
