@@ -20,8 +20,10 @@ class PictureWallProcessor {
   async process(job: any): Promise<PictureWallResponse> {
     const { avatarImageBuffer, avatarImageType } = job.payload;
 
-    // Update progress: Starting reverse prompt analysis
-    JobQueue.updateJob(job.id, { progress: 10 });
+    // Update progress: Starting reverse prompt analysis (仅本地模式)
+    if (!job.id.startsWith('vercel-')) {
+      JobQueue.updateJob(job.id, { progress: 10 });
+    }
 
     // Convert buffer back to base64 for API call
     const avatarBuffer = Buffer.from(avatarImageBuffer, 'base64');
@@ -59,10 +61,10 @@ class PictureWallProcessor {
     console.log('提取的提示词:', prompt);
     console.log('========================');
 
-    // Update progress: Reverse prompt completed
-    JobQueue.updateJob(job.id, {
-      progress: 30
-    });
+    // Update progress: Reverse prompt completed (仅本地模式)
+    if (!job.id.startsWith('vercel-')) {
+      JobQueue.updateJob(job.id, { progress: 30 });
+    }
 
     // Use the original reverse prompt directly without any enhancement
     const finalPrompt = prompt; // 直接使用反推提示词，不进行任何加工
@@ -84,9 +86,11 @@ class PictureWallProcessor {
     ];
 
     for (let i = 0; i < 3; i++) {
-      // Update progress for each image
-      const progress = 30 + Math.floor((i / 3) * 60); // 30% → 90%
-      JobQueue.updateJob(job.id, { progress });
+      // Update progress for each image (仅本地模式)
+      if (!job.id.startsWith('vercel-')) {
+        const progress = 30 + Math.floor((i / 3) * 60); // 30% → 90%
+        JobQueue.updateJob(job.id, { progress });
+      }
 
       // 为每张图片添加不同的构图要求
       const enhancedPrompt = `${finalPrompt}
@@ -166,8 +170,10 @@ ${compositionVariations[i]}
       throw new Error('Failed to generate any images');
     }
 
-    // Final progress update
-    JobQueue.updateJob(job.id, { progress: 95 });
+    // Final progress update (仅本地模式)
+    if (!job.id.startsWith('vercel-')) {
+      JobQueue.updateJob(job.id, { progress: 95 });
+    }
 
     return {
       images,
@@ -258,24 +264,42 @@ export async function POST(request: NextRequest) {
     // Convert file to buffer
     const avatarBuffer = Buffer.from(await avatarFile.arrayBuffer());
 
-    // Create job with buffer data
-    const job = JobQueue.createJob('picture-wall', {
+    const payload = {
       avatarImageBuffer: avatarBuffer.toString('base64'),
       avatarImageType: avatarFile.type,
-    }, clientIp);
-    
-    // Start job processing
-    jobRunner.runJob(job.id);
-    
-    return NextResponse.json({
-      ok: true,
-      data: {
-        jobId: job.id,
-        status: job.status,
-      },
-      requestId,
-      durationMs: Date.now() - startTime,
-    } as ApiResponse);
+    };
+
+    // Vercel 环境检测: 同步处理而非异步作业队列
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+    if (isVercel) {
+      // Vercel 模式: 同步处理,直接返回结果
+      console.log('Vercel环境检测: 使用同步处理模式');
+
+      const processor = new PictureWallProcessor();
+      const result = await processor.process({ id: `vercel-${Date.now()}`, payload } as any);
+
+      return NextResponse.json({
+        ok: true,
+        data: result,
+        requestId,
+        durationMs: Date.now() - startTime,
+      } as ApiResponse);
+    } else {
+      // 本地模式: 异步作业队列
+      const job = JobQueue.createJob('picture-wall', payload, clientIp);
+      jobRunner.runJob(job.id);
+
+      return NextResponse.json({
+        ok: true,
+        data: {
+          jobId: job.id,
+          status: job.status,
+        },
+        requestId,
+        durationMs: Date.now() - startTime,
+      } as ApiResponse);
+    }
     
   } catch (error) {
     console.error('Picture wall API error:', error);
