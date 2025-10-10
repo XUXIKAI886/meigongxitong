@@ -91,11 +91,27 @@ export default function BackgroundFusionPage() {
   }, []);
 
   // 保存批量结果到localStorage
-  const saveBatchResults = (results: any[]) => {
+  const saveBatchResults = (results: any[], skipStorage = false) => {
+    // Vercel模式下跳过localStorage保存(base64数据太大)
+    if (skipStorage) {
+      console.log('跳过localStorage保存(Vercel模式)');
+      return;
+    }
+
     try {
       localStorage.setItem('backgroundFusionBatchResults', JSON.stringify(results));
     } catch (error) {
-      console.error('Failed to save batch results:', error);
+      console.warn('保存到localStorage失败(可能是配额超出):', error);
+      // 降级方案: 只保存元数据
+      try {
+        const metadataOnly = results.map(r => ({
+          ...r,
+          imageUrl: r.imageUrl?.startsWith('data:') ? '[base64-data-too-large]' : r.imageUrl
+        }));
+        localStorage.setItem('backgroundFusionBatchResults', JSON.stringify(metadataOnly));
+      } catch (secondError) {
+        console.error('保存元数据也失败:', secondError);
+      }
     }
   };
 
@@ -286,10 +302,32 @@ export default function BackgroundFusionPage() {
       console.log('API响应:', data);
 
       if (response.ok) {
-        console.log('收到作业ID:', data.jobId);
-        setCurrentJobId(data.jobId);
-        setStatusMessage('任务已创建，开始处理...');
-        pollJobStatus(data.jobId);
+        // 检测是同步结果(Vercel)还是异步任务(本地)
+        if (data.ok && data.data) {
+          // Vercel同步模式: 直接显示结果
+          console.log('检测到Vercel同步模式响应');
+          setIsProcessing(false);
+
+          if (isBatchMode) {
+            // 批量模式结果
+            setBatchResults(data.data || []);
+            saveBatchResults(data.data || [], true); // skipStorage=true for Vercel
+            setStatusMessage('批量处理完成！');
+          } else {
+            // 单张模式结果
+            setResult(data.data.imageUrl);
+            setStatusMessage('处理完成！');
+          }
+          setProgress(100);
+        } else if (data.jobId) {
+          // 本地异步模式: 轮询作业状态
+          console.log('检测到本地异步模式，开始轮询作业:', data.jobId);
+          setCurrentJobId(data.jobId);
+          setStatusMessage('任务已创建，开始处理...');
+          pollJobStatus(data.jobId);
+        } else {
+          throw new Error('无效的API响应格式');
+        }
       } else {
         throw new Error(data.error || '处理失败');
       }
