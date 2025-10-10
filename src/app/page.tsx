@@ -64,7 +64,6 @@ export default function HomePage() {
       description: '参考Logo反推提示词，生成店铺Logo、店招和海报',
       icon: PaletteIcon,
       href: '/logo-studio',
-      badge: 'F2',
       color: 'bg-gradient-to-br from-emerald-500 to-teal-600',
       outputSize: 'Logo 800×800px, 店招 1280×720px, 海报 1440×480px',
       features: ['Logo分析', '提示词反推', '品牌设计', '多尺寸输出']
@@ -75,7 +74,6 @@ export default function HomePage() {
       description: '上传门头照片，智能替换文字内容，实现拟真P图效果',
       icon: TypeIcon,
       href: '/signboard',
-      badge: 'F3',
       color: 'bg-gradient-to-br from-orange-500 to-red-600',
       outputSize: '4693×3520px',
       features: ['文字识别', '透视保持', '光影匹配', '自然融合']
@@ -86,7 +84,6 @@ export default function HomePage() {
       description: '上传店铺头像，反推风格并生成三张统一风格的图片墙',
       icon: LayoutGridIcon,
       href: '/picture-wall',
-      badge: 'F4',
       color: 'bg-gradient-to-br from-purple-500 to-violet-600',
       outputSize: '3张 4800×6600px',
       features: ['风格分析', '统一设计', '批量生成', '品牌一致性']
@@ -97,7 +94,6 @@ export default function HomePage() {
       description: '将源图片中的食物智能替换到目标图片的碗中，AI自动匹配光影和透视',
       icon: RefreshCwIcon,
       href: '/food-replacement',
-      badge: 'F6',
       color: 'bg-gradient-to-br from-amber-500 to-orange-600',
       outputSize: '1200×900px',
       features: ['智能提取', '食物替换', '光影匹配', '透视校正', '自然融合']
@@ -108,7 +104,6 @@ export default function HomePage() {
       description: '将美食完美融合到目标背景中，创造令人垂涎的视觉效果，增强食欲感',
       icon: BlendIcon,
       href: '/background-fusion',
-      badge: 'F7',
       color: 'bg-gradient-to-br from-red-500 to-pink-600',
       outputSize: '1200×900px',
       features: ['背景融合', '食欲增强', '光影匹配', '商业品质', '批量处理']
@@ -119,7 +114,6 @@ export default function HomePage() {
       description: '将多张美食图片智能融合到同一背景中，生成高度一致的套餐图，完美展示美食组合',
       icon: LayersIcon,
       href: '/multi-fusion',
-      badge: 'F8',
       color: 'bg-gradient-to-br from-purple-500 to-pink-600',
       outputSize: '1200×900px',
       features: ['多图融合', '套餐展示', '风格统一', '商业品质', '智能排列']
@@ -219,13 +213,10 @@ export default function HomePage() {
                   <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
                   <CardHeader className="pb-4 relative z-10">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center mb-4">
                       <div className={`p-4 rounded-2xl ${feature.color} text-white shadow-lg group-hover:scale-110 transition-transform duration-300`}>
                         <IconComponent className="h-7 w-7" />
                       </div>
-                      <Badge variant="secondary" className="text-sm px-3 py-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 font-semibold border-0 shadow-sm">
-                        {feature.badge}
-                      </Badge>
                     </div>
                     <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-300 mb-3">
                       {feature.title}
