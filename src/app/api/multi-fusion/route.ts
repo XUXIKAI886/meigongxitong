@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProductRefineApiClient } from '@/lib/api-client';
 import { jobRunner, JobQueue } from '@/lib/job-queue';
+import { FileManager } from '@/lib/upload';
 import { config } from '@/lib/config';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, mkdir, readFile } from 'fs/promises';
@@ -84,20 +85,17 @@ Create a commercial-quality restaurant image where all ${sourceImagesBase64.leng
       throw new Error('Invalid image data format');
     }
 
-    // 保存图片到public/generated目录
-    const filename = `multi-fusion-${uuidv4()}.png`;
-    const publicDir = path.join(process.cwd(), 'public', 'generated');
-    
-    // 确保目录存在
-    if (!fs.existsSync(publicDir)) {
-      await mkdir(publicDir, { recursive: true });
-    }
-    
-    const filePath = path.join(publicDir, filename);
-    await writeFile(filePath, base64Data, 'base64');
+    // 保存图片 (使用 FileManager 自动适配 Vercel)
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+    const savedFile = await FileManager.saveBuffer(
+      imageBuffer,
+      `multi-fusion-${Date.now()}.png`,
+      'image/png',
+      true
+    );
 
     return {
-      imageUrl: `/generated/${filename}`,
+      imageUrl: savedFile.url,
       width: 1200,
       height: 900
     };
@@ -193,53 +191,70 @@ INTEGRATION REQUIREMENTS:
 FINAL RESULT:
 Generate a high-quality restaurant-style image where all ${sourceImages.length} extracted food items are the main attractions, properly sized and seamlessly integrated into the background scene.`;
 
-    // 创建并启动作业
-    const job = JobQueue.createJob('multi-fusion', {
+    const payload = {
       sourceImageBuffers,
       targetImageBuffer,
       prompt
-    }, 'anonymous');
+    };
 
-    // 启动作业处理
-    jobRunner.runJob(job.id);
+    // Vercel 环境检测: 同步处理而非异步作业队列
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
-    // 等待作业完成（最多等待5分钟）
-    const maxWaitTime = 5 * 60 * 1000; // 5分钟
-    const startTime = Date.now();
+    if (isVercel) {
+      // Vercel 模式: 同步处理,直接返回结果
+      console.log('Vercel环境检测: 使用同步处理模式');
 
-    while (Date.now() - startTime < maxWaitTime) {
-      const currentJob = JobQueue.getJob(job.id);
+      const processor = new MultiFusionProcessor();
+      const result = await processor.process({ id: `vercel-${Date.now()}`, payload } as any);
 
-      if (!currentJob) {
-        break; // 作业已被清理
+      return NextResponse.json({
+        success: true,
+        result: result,
+        message: '多图融合完成'
+      });
+    } else {
+      // 本地模式: 同步等待作业完成 (原有逻辑)
+      const job = JobQueue.createJob('multi-fusion', payload, 'anonymous');
+
+      jobRunner.runJob(job.id);
+
+      // 等待作业完成（最多等待5分钟）
+      const maxWaitTime = 5 * 60 * 1000;
+      const startTime = Date.now();
+
+      while (Date.now() - startTime < maxWaitTime) {
+        const currentJob = JobQueue.getJob(job.id);
+
+        if (!currentJob) {
+          break;
+        }
+
+        if (currentJob.status === 'succeeded') {
+          return NextResponse.json({
+            success: true,
+            jobId: job.id,
+            result: currentJob.result,
+            message: '多图融合完成'
+          });
+        }
+
+        if (currentJob.status === 'failed') {
+          return NextResponse.json({
+            success: false,
+            error: currentJob.error || '多图融合失败'
+          }, { status: 500 });
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      if (currentJob.status === 'succeeded') {
-        return NextResponse.json({
-          success: true,
-          jobId: job.id,
-          result: currentJob.result,
-          message: '多图融合完成'
-        });
-      }
-
-      if (currentJob.status === 'failed') {
-        return NextResponse.json({
-          success: false,
-          error: currentJob.error || '多图融合失败'
-        }, { status: 500 });
-      }
-
-      // 等待100ms后再检查
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // 如果超时，返回作业ID让前端轮询
+      return NextResponse.json({
+        success: true,
+        jobId: job.id,
+        message: '多图融合任务已启动，请等待处理完成'
+      });
     }
-
-    // 如果超时，返回作业ID让前端轮询
-    return NextResponse.json({
-      success: true,
-      jobId: job.id,
-      message: '多图融合任务已启动，请等待处理完成'
-    });
 
   } catch (error) {
     console.error('Multi-fusion API error:', error);
