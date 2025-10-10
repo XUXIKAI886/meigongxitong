@@ -141,13 +141,14 @@ export default function FoodReplacementPage() {
               if (result.imageUrl && !result.error) {
                 // 成功的结果
                 setJobStatus({
+                  id: `vercel-batch-${index}`,
                   status: 'succeeded',
+                  progress: 100,
                   result: {
                     imageUrl: result.imageUrl,
                     width: result.width,
                     height: result.height,
                   },
-                  fileName: sourceImages[index]?.name || `图片${index + 1}`,
                 });
               } else {
                 // 失败的结果
@@ -207,13 +208,14 @@ export default function FoodReplacementPage() {
             console.log('检测到Vercel同步模式响应，直接处理结果');
             setIsProcessing(false);
             setJobStatus({
+              id: 'vercel-single',
               status: 'succeeded',
+              progress: 100,
               result: {
                 imageUrl: data.data.imageUrl,
                 width: data.data.width,
                 height: data.data.height,
               },
-              fileName: sourceImage?.name || '单张图片',
             });
             alert('食物替换完成!');
           } else if (data.jobId) {
