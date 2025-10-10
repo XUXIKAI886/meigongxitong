@@ -1,0 +1,45 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔍 Run ESLint
+        run: npm run lint || true
+
+      - name: 🏗️ Build project
+        run: npm run build
+        env:
+          IMAGE_API_BASE_URL: ${{ secrets.IMAGE_API_BASE_URL }}
+          IMAGE_API_KEY: ${{ secrets.IMAGE_API_KEY }}
+          IMAGE_MODEL_NAME: ${{ secrets.IMAGE_MODEL_NAME }}
+          CHAT_API_BASE_URL: ${{ secrets.CHAT_API_BASE_URL }}
+          CHAT_API_KEY: ${{ secrets.CHAT_API_KEY }}
+          CHAT_MODEL_NAME: ${{ secrets.CHAT_MODEL_NAME }}
+          NEXT_PUBLIC_APP_NAME: 美工设计系统
+          NEXT_PUBLIC_MAX_FILE_SIZE: 10485760
+
+      - name: ✅ Build successful
+        run: echo "✅ 构建成功！项目已准备好部署。"

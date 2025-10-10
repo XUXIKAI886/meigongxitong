@@ -1,0 +1,129 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  NODE_VERSION: '18.x'
+
+jobs:
+  # 构建和测试任务
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint || echo "Linting completed with warnings"
+
+      - name: Build project
+        run: npm run build
+        env:
+          # 从GitHub Secrets获取环境变量
+          IMAGE_API_BASE_URL: ${{ secrets.IMAGE_API_BASE_URL }}
+          IMAGE_API_KEY: ${{ secrets.IMAGE_API_KEY }}
+          IMAGE_MODEL_NAME: ${{ secrets.IMAGE_MODEL_NAME }}
+          CHAT_API_BASE_URL: ${{ secrets.CHAT_API_BASE_URL }}
+          CHAT_API_KEY: ${{ secrets.CHAT_API_KEY }}
+          CHAT_MODEL_NAME: ${{ secrets.CHAT_MODEL_NAME }}
+          NEXT_PUBLIC_APP_NAME: ${{ secrets.NEXT_PUBLIC_APP_NAME }}
+          NEXT_PUBLIC_MAX_FILE_SIZE: ${{ secrets.NEXT_PUBLIC_MAX_FILE_SIZE }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: .next
+          retention-days: 1
+
+  # 部署到Vercel (推荐)
+  deploy-vercel:
+    name: Deploy to Vercel
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+
+  # 可选: 部署到其他平台 (如Netlify)
+  # deploy-netlify:
+  #   name: Deploy to Netlify
+  #   needs: build-and-test
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+  #
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: ${{ env.NODE_VERSION }}
+  #
+  #     - name: Install dependencies
+  #       run: npm ci
+  #
+  #     - name: Build project
+  #       run: npm run build
+  #       env:
+  #         IMAGE_API_BASE_URL: ${{ secrets.IMAGE_API_BASE_URL }}
+  #         IMAGE_API_KEY: ${{ secrets.IMAGE_API_KEY }}
+  #         IMAGE_MODEL_NAME: ${{ secrets.IMAGE_MODEL_NAME }}
+  #         CHAT_API_BASE_URL: ${{ secrets.CHAT_API_BASE_URL }}
+  #         CHAT_API_KEY: ${{ secrets.CHAT_API_KEY }}
+  #         CHAT_MODEL_NAME: ${{ secrets.CHAT_MODEL_NAME }}
+  #
+  #     - name: Deploy to Netlify
+  #       uses: nwtgck/actions-netlify@v3.0
+  #       with:
+  #         publish-dir: '.next'
+  #         production-branch: master
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
+  #         deploy-message: "Deploy from GitHub Actions"
+  #       env:
+  #         NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+  #         NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+  # 可选: 部署状态通知
+  notify:
+    name: Deployment Notification
+    needs: [build-and-test, deploy-vercel]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Deployment Status
+        run: |
+          if [ "${{ needs.deploy-vercel.result }}" == "success" ]; then
+            echo "✅ 部署成功！"
+          else
+            echo "❌ 部署失败，请查看日志"
+          fi

@@ -141,6 +141,9 @@ pnpm install
 IMAGE_API_BASE_URL=your_api_base_url
 IMAGE_API_KEY=your_api_key
 IMAGE_MODEL_NAME=your_model_name
+CHAT_API_BASE_URL=your_chat_api_base_url
+CHAT_API_KEY=your_chat_api_key
+CHAT_MODEL_NAME=your_chat_model_name
 
 # 应用配置
 NEXT_PUBLIC_APP_NAME=美工设计系统
@@ -165,6 +168,52 @@ bun dev
 npm run build
 npm run start
 ```
+
+## 🚀 自动部署
+
+本项目已配置GitHub Actions自动部署，每次推送到`master`分支会自动触发：
+
+### 部署流程
+1. **代码检查** - ESLint自动检查代码质量
+2. **项目构建** - 使用Turbopack进行高效构建
+3. **自动部署** - 部署到Vercel等平台
+
+### 配置GitHub Actions
+查看详细配置指南：[.github/DEPLOYMENT.md](.github/DEPLOYMENT.md)
+
+### 推荐部署平台
+
+#### Vercel（推荐）
+```bash
+# 安装Vercel CLI
+npm install -g vercel
+
+# 登录并部署
+vercel login
+vercel
+```
+
+#### Netlify
+```bash
+# 安装Netlify CLI
+npm install -g netlify-cli
+
+# 登录并部署
+netlify login
+netlify deploy
+```
+
+### GitHub Secrets配置
+在GitHub仓库设置中添加以下Secrets：
+- `IMAGE_API_BASE_URL`
+- `IMAGE_API_KEY`
+- `IMAGE_MODEL_NAME`
+- `CHAT_API_BASE_URL`
+- `CHAT_API_KEY`
+- `CHAT_MODEL_NAME`
+- `VERCEL_TOKEN`（可选，用于Vercel部署）
+- `VERCEL_ORG_ID`（可选）
+- `VERCEL_PROJECT_ID`（可选）
 
 ## 🛠️ 技术栈
 
