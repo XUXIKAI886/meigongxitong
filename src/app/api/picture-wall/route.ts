@@ -134,13 +134,20 @@ ${compositionVariations[i]}
 
         const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
 
-        // Resize to exact dimensions
-        const processedBuffer = await resizeImage(
-          imageBuffer,
-          targetSize.width,
-          targetSize.height,
-          { fit: 'cover' }
-        );
+        // Resize to exact dimensions (跳过Sharp在Vercel上,因为不可用)
+        let processedBuffer: Buffer;
+        try {
+          processedBuffer = await resizeImage(
+            imageBuffer,
+            targetSize.width,
+            targetSize.height,
+            { fit: 'cover' }
+          );
+        } catch (error) {
+          // Sharp不可用时(Vercel),直接使用原图
+          console.log('Sharp不可用,使用原图:', error);
+          processedBuffer = imageBuffer;
+        }
 
         // Save the processed image
         const savedFile = await FileManager.saveBuffer(
