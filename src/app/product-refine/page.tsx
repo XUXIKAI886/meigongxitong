@@ -239,10 +239,35 @@ export default function ProductRefinePage() {
         throw new Error('精修请求失败');
       }
 
-      const { jobId } = await response.json();
+      const responseData = await response.json();
 
-      // 开始轮询任务状态
-      pollJobStatus(jobId);
+      // 检测同步响应 (Vercel) vs 异步响应 (本地)
+      if (responseData.ok && responseData.data) {
+        // Vercel 同步模式: 直接使用返回的结果
+        console.log('检测到同步响应(Vercel模式),直接使用结果:', responseData.data);
+
+        setJobStatus({
+          id: 'vercel-sync',
+          status: 'succeeded',
+          progress: 100,
+          result: responseData.data,
+        });
+        setIsProcessing(false);
+
+        // 在单张模式下，将结果添加到完成列表中
+        if (!isBatchMode && responseData.data.imageUrl) {
+          setCompletedResults(prev => [...prev, {
+            imageUrl: responseData.data.imageUrl,
+            originalIndex: prev.length
+          }]);
+        }
+      } else if (responseData.jobId) {
+        // 本地异步模式: 使用 jobId 轮询
+        console.log('检测到异步响应(本地模式),开始轮询 jobId:', responseData.jobId);
+        pollJobStatus(responseData.jobId);
+      } else {
+        throw new Error('Invalid response format');
+      }
     } catch (error) {
       console.error('精修失败:', error);
       alert('精修失败，请重试');
