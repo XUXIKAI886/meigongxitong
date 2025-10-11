@@ -66,7 +66,7 @@ export class ProductRefineApiClient {
         choicesCount: response.data?.choices?.length
       });
 
-      return this.convertOpenAIResponse(response.data);
+      return await this.convertOpenAIResponse(response.data);
     } catch (error: any) {
       console.error('Product Refine API Error (OpenAI Compatible):', {
         status: error.response?.status,
@@ -140,7 +140,7 @@ export class ProductRefineApiClient {
         choicesCount: response.data?.choices?.length
       });
 
-      return this.convertOpenAIResponse(response.data);
+      return await this.convertOpenAIResponse(response.data);
     } catch (error: any) {
       console.error('Food Replacement API Error (OpenAI Compatible):', {
         status: error.response?.status,
@@ -152,7 +152,7 @@ export class ProductRefineApiClient {
     }
   }
 
-  private convertOpenAIResponse(openAIResponse: any) {
+  private async convertOpenAIResponse(openAIResponse: any) {
     console.log('Converting OpenAI Compatible Response...');
     console.log('Choices:', openAIResponse.choices?.length || 0);
 
@@ -165,33 +165,89 @@ export class ProductRefineApiClient {
       console.log('Content type:', typeof content);
       console.log('Content preview:', content.substring(0, 200));
 
-      // 检查content是否包含base64图片数据
+      // 检查content是否包含图片数据
       if (typeof content === 'string') {
-        // 尝试匹配 data URL 格式
-        const dataUrlMatch = content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
-        if (dataUrlMatch) {
-          const dataUrl = dataUrlMatch[0];
-          const base64Data = dataUrl.split(',')[1];
+        // 1. 检查是否是Markdown格式的图片链接: ![image](URL)
+        const markdownImageMatch = content.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/);
+        if (markdownImageMatch) {
+          const imageUrl = markdownImageMatch[1];
+          console.log('Found Markdown image URL:', imageUrl);
 
-          console.log('Found image data URL:', {
-            base64Length: base64Data?.length
-          });
+          try {
+            // 下载图片并转换为base64
+            const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+            const base64Data = Buffer.from(response.data, 'binary').toString('base64');
+            const contentType = response.headers['content-type'] || 'image/png';
+            const dataUrl = `data:${contentType};base64,${base64Data}`;
 
-          if (base64Data && base64Data.length > 0) {
+            console.log('Successfully downloaded and converted image:', {
+              url: imageUrl,
+              contentType,
+              base64Length: base64Data.length
+            });
+
             imageData.push({
               url: dataUrl,
               b64_json: base64Data
             });
+          } catch (error) {
+            console.error('Failed to download image from URL:', imageUrl, error);
+            throw new Error(`Failed to download image from ${imageUrl}: ${error}`);
           }
         }
-        // 如果content本身就是纯base64，添加data URL前缀
-        else if (/^[A-Za-z0-9+/]+=*$/.test(content.substring(0, 100))) {
-          console.log('Found pure base64 data, adding data URL prefix');
-          const dataUrl = `data:image/png;base64,${content}`;
-          imageData.push({
-            url: dataUrl,
-            b64_json: content
-          });
+        // 2. 检查是否是普通的HTTP(S) URL
+        else if (/^https?:\/\//i.test(content.trim())) {
+          const imageUrl = content.trim();
+          console.log('Found plain image URL:', imageUrl);
+
+          try {
+            const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+            const base64Data = Buffer.from(response.data, 'binary').toString('base64');
+            const contentType = response.headers['content-type'] || 'image/png';
+            const dataUrl = `data:${contentType};base64,${base64Data}`;
+
+            console.log('Successfully downloaded and converted image:', {
+              url: imageUrl,
+              contentType,
+              base64Length: base64Data.length
+            });
+
+            imageData.push({
+              url: dataUrl,
+              b64_json: base64Data
+            });
+          } catch (error) {
+            console.error('Failed to download image from URL:', imageUrl, error);
+            throw new Error(`Failed to download image from ${imageUrl}: ${error}`);
+          }
+        }
+        // 3. 尝试匹配 data URL 格式
+        else {
+          const dataUrlMatch = content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+          if (dataUrlMatch) {
+            const dataUrl = dataUrlMatch[0];
+            const base64Data = dataUrl.split(',')[1];
+
+            console.log('Found image data URL:', {
+              base64Length: base64Data?.length
+            });
+
+            if (base64Data && base64Data.length > 0) {
+              imageData.push({
+                url: dataUrl,
+                b64_json: base64Data
+              });
+            }
+          }
+          // 4. 如果content本身就是纯base64，添加data URL前缀
+          else if (/^[A-Za-z0-9+/]+=*$/.test(content.substring(0, 100))) {
+            console.log('Found pure base64 data, adding data URL prefix');
+            const dataUrl = `data:image/png;base64,${content}`;
+            imageData.push({
+              url: dataUrl,
+              b64_json: content
+            });
+          }
         }
       }
 
