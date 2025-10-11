@@ -441,6 +441,20 @@ addResults(newResults, false);
 
 ## 🆕 最新更新
 
+### v2.3.0 - 2025年10月 🔥 **Gemini API迁移版**
+- ✅ **API端点迁移**：所有Gemini API调用迁移到新的OpenAI兼容端点
+- ✅ **统一API配置**：新增GEMINI_*统一环境变量，简化配置管理
+- ✅ **智能响应处理**：支持Markdown图片链接自动下载转换
+- ✅ **多格式兼容**：同时支持base64、data URL、HTTP URL三种图片格式
+- ✅ **向后兼容**：保持现有功能完全兼容，零业务中断
+- ✅ **环境变量优化**：从13个增加到16个，覆盖所有Gemini功能
+- ✅ **API客户端重构**：修复认证方式，从URL参数改为Authorization Header
+- 🔧 **新API端点**：
+  - 旧端点: `jeniya.top` (已废弃)
+  - 新端点: `newapi.aicohere.org` ✅
+  - 新模型: `gemini-2.5-flash-image-preview`
+  - 新密钥: `sk-nonnwG0UNTsUcnyUDEkKfm4uBqSlRhBIBEMEOwDNJ2mvYM3o`
+
 ### v2.2.0 - 2025年10月 🔥 **Vercel部署完美适配版**
 - ✅ **Vercel同步处理模式适配**：所有API完成Vercel无服务器环境适配
 - ✅ **智能环境检测**：自动识别Vercel环境，切换为同步处理模式
