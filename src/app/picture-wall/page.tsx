@@ -249,7 +249,7 @@ export default function PictureWallPage() {
               <CardHeader>
                 <CardTitle>生成结果</CardTitle>
                 <CardDescription>
-                  系统将为您设计3张风格统一的专业图片墙
+                  系统已为您设计3张风格统一的专业图片墙
                 </CardDescription>
               </CardHeader>
               <CardContent>

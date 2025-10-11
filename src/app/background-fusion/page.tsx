@@ -1,25 +1,25 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Upload, Download, Loader2, Grid, Image as ImageIcon, Trash2, ArrowLeft } from 'lucide-react';
 
 export default function BackgroundFusionPage() {
   // 模式状态
   const [isBatchMode, setIsBatchMode] = useState(false);
-  
+
   // 单张模式状态
   const [sourceImage, setSourceImage] = useState<File | null>(null);
   const [sourceImagePreview, setSourceImagePreview] = useState<string | null>(null);
   const [targetImage, setTargetImage] = useState<File | null>(null);
   const [targetImagePreview, setTargetImagePreview] = useState<string | null>(null);
-  
+
   // 批量模式状态
   const [sourceImages, setSourceImages] = useState<File[]>([]);
   const [sourceImagePreviews, setSourceImagePreviews] = useState<string[]>([]);
   const [batchTargetImage, setBatchTargetImage] = useState<File | null>(null);
   const [batchTargetImagePreview, setBatchTargetImagePreview] = useState<string | null>(null);
-  
+
   // 处理状态
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -27,7 +27,7 @@ export default function BackgroundFusionPage() {
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
-  
+
   // 模板相关状态
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
@@ -36,6 +36,9 @@ export default function BackgroundFusionPage() {
 
   // 历史结果状态
   const [historicalBatchResults, setHistoricalBatchResults] = useState<any[]>([]);
+
+  // 保存原始文件名的ref (避免闭包问题)
+  const fileNamesRef = useRef<string[]>([]);
 
   // 加载模板
   const loadTemplates = async () => {
@@ -172,7 +175,13 @@ export default function BackgroundFusionPage() {
   };
 
   // 轮询任务状态
-  const pollJobStatus = async (jobId: string) => {
+  const pollJobStatus = async (jobId: string, fileNames?: string[]) => {
+    // 如果提供了文件名数组，保存它
+    if (fileNames) {
+      console.log('pollJobStatus - 保存原始文件名:', fileNames);
+      fileNamesRef.current = fileNames;
+    }
+
     const maxAttempts = 180; // 最多轮询3分钟 (180秒)
     let attempts = 0;
 
@@ -200,13 +209,31 @@ export default function BackgroundFusionPage() {
           if (job.status === 'succeeded') {
             console.log('任务成功完成，结果:', job.result);
             if (isBatchMode) {
-              setBatchResults(job.result || []);
+              // 批量模式：为每个结果添加sourceFileName
+              const results = job.result || [];
+              console.log('处理批量结果 - 原始结果:', results);
+              console.log('处理批量结果 - 文件名数组 (ref):', fileNamesRef.current);
+
+              const resultsWithFileName = results.map((r: any) => {
+                const sourceIndex = r.sourceImageIndex !== undefined ? r.sourceImageIndex : 0;
+                const originalFileName = fileNamesRef.current[sourceIndex];
+                console.log(`批量结果 ${sourceIndex}: sourceIndex=${sourceIndex}, fileName=${originalFileName}`);
+
+                return {
+                  ...r,
+                  sourceFileName: originalFileName,
+                };
+              });
+
+              console.log('处理批量结果 - 添加文件名后:', resultsWithFileName);
+
+              setBatchResults(resultsWithFileName);
               // 清空历史记录，只显示当前批次的结果
               setHistoricalBatchResults([]);
               // 保存当前批次结果到本地存储
-              const newResults = job.result || [];
-              saveBatchResults(newResults);
+              saveBatchResults(resultsWithFileName);
             } else {
+              // 单张模式：保存结果URL到state，文件名已保存在ref中
               setResult(job.result?.imageUrl || job.result);
             }
             setIsProcessing(false);
@@ -262,13 +289,17 @@ export default function BackgroundFusionPage() {
 
     try {
       const formData = new FormData();
-      
+      let fileNames: string[] = [];
+
       if (isBatchMode) {
-        // 批量模式
+        // 批量模式：收集所有源图片文件名
+        fileNames = sourceImages.map(img => img.name);
+        console.log('批量模式 - 收集的文件名:', fileNames);
+
         sourceImages.forEach((image) => {
           formData.append('sourceImages', image);
         });
-        
+
         if (selectedTemplate) {
           // 使用模板
           formData.append('targetImageUrl', selectedTemplate.url);
@@ -277,9 +308,12 @@ export default function BackgroundFusionPage() {
           formData.append('targetImage', batchTargetImage!);
         }
       } else {
-        // 单张模式
+        // 单张模式：收集单个源图片文件名
+        fileNames = [sourceImage!.name];
+        console.log('单张模式 - 收集的文件名:', fileNames);
+
         formData.append('sourceImage', sourceImage!);
-        
+
         if (selectedTemplate) {
           // 使用模板
           formData.append('targetImageUrl', selectedTemplate.url);
@@ -309,22 +343,32 @@ export default function BackgroundFusionPage() {
           setIsProcessing(false);
 
           if (isBatchMode) {
-            // 批量模式结果
-            setBatchResults(data.data || []);
-            saveBatchResults(data.data || [], true); // skipStorage=true for Vercel
+            // 批量模式结果：添加sourceFileName
+            const resultsWithFileName = (data.data || []).map((r: any) => {
+              const sourceIndex = r.sourceImageIndex !== undefined ? r.sourceImageIndex : 0;
+              const originalFileName = fileNames[sourceIndex];
+              return {
+                ...r,
+                sourceFileName: originalFileName,
+              };
+            });
+
+            setBatchResults(resultsWithFileName);
+            saveBatchResults(resultsWithFileName, true); // skipStorage=true for Vercel
             setStatusMessage('批量处理完成！');
           } else {
-            // 单张模式结果
+            // 单张模式结果：保存文件名到ref
+            fileNamesRef.current = fileNames;
             setResult(data.data.imageUrl);
             setStatusMessage('处理完成！');
           }
           setProgress(100);
         } else if (data.jobId) {
-          // 本地异步模式: 轮询作业状态
+          // 本地异步模式: 轮询作业状态，传递文件名
           console.log('检测到本地异步模式，开始轮询作业:', data.jobId);
           setCurrentJobId(data.jobId);
           setStatusMessage('任务已创建，开始处理...');
-          pollJobStatus(data.jobId);
+          pollJobStatus(data.jobId, fileNames);
         } else {
           throw new Error('无效的API响应格式');
         }
@@ -351,10 +395,13 @@ export default function BackgroundFusionPage() {
   // 批量下载所有图片
   const downloadAllImages = () => {
     const successResults = [...batchResults, ...historicalBatchResults].filter(result => result.status === 'success');
-    
+
     successResults.forEach((result, index) => {
       setTimeout(() => {
-        downloadImage(result.imageUrl, `background-fusion-${index + 1}.jpg`);
+        // 使用原始文件名或生成默认名称
+        const filename = result.sourceFileName || `background-fusion-${index + 1}.jpg`;
+        console.log(`批量下载 - 第${index + 1}张图片，使用文件名:`, filename);
+        downloadImage(result.imageUrl, filename);
       }, index * 500); // 每500ms下载一张，避免浏览器阻止
     });
   };
@@ -723,7 +770,12 @@ export default function BackgroundFusionPage() {
                 className="mx-auto max-w-full h-auto rounded-lg shadow-md mb-4"
               />
               <button
-                onClick={() => downloadImage(result, 'background-fusion-result.jpg')}
+                onClick={() => {
+                  // 使用原始文件名或生成默认名称
+                  const filename = fileNamesRef.current[0] || 'background-fusion-result.jpg';
+                  console.log('单张下载 - 使用文件名:', filename);
+                  downloadImage(result, filename);
+                }}
                 className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors flex items-center justify-center mx-auto"
               >
                 <Download className="h-5 w-5 mr-2" />
@@ -773,7 +825,12 @@ export default function BackgroundFusionPage() {
                       />
                       <div className="absolute inset-0 rounded transition-all duration-200 flex items-center justify-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0)' }}>
                         <button
-                          onClick={() => downloadImage(result.imageUrl, `background-fusion-${index + 1}.jpg`)}
+                          onClick={() => {
+                            // 使用原始文件名或生成默认名称
+                            const filename = result.sourceFileName || `background-fusion-${index + 1}.jpg`;
+                            console.log(`批量单张下载 - 第${index + 1}张，使用文件名:`, filename);
+                            downloadImage(result.imageUrl, filename);
+                          }}
                           className="bg-green-500 text-white px-3 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           下载

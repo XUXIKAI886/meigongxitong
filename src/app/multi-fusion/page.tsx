@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Upload, Download, Loader2, Grid, Image as ImageIcon, Trash2, ArrowLeft, Plus, X } from 'lucide-react';
 
@@ -8,23 +8,26 @@ export default function MultiFusionPage() {
   // 多张源图片状态
   const [sourceImages, setSourceImages] = useState<File[]>([]);
   const [sourceImagePreviews, setSourceImagePreviews] = useState<string[]>([]);
-  
+
   // 目标背景状态
   const [targetImage, setTargetImage] = useState<File | null>(null);
   const [targetImagePreview, setTargetImagePreview] = useState<string | null>(null);
-  
+
   // 处理状态
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
-  
+
   // 模板相关状态
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  // 保存原始文件名的ref (避免闭包问题)
+  const fileNamesRef = useRef<string[]>([]);
 
 
 
@@ -103,7 +106,13 @@ export default function MultiFusionPage() {
   };
 
   // 轮询作业状态
-  const pollJobStatus = async (jobId: string) => {
+  const pollJobStatus = async (jobId: string, fileNames?: string[]) => {
+    // 如果提供了文件名数组，保存它
+    if (fileNames) {
+      console.log('pollJobStatus - 保存原始文件名:', fileNames);
+      fileNamesRef.current = fileNames;
+    }
+
     const maxAttempts = 60;
     let attempts = 0;
 
@@ -111,10 +120,10 @@ export default function MultiFusionPage() {
       try {
         const response = await fetch(`/api/jobs/${jobId}`);
         const apiResponse = await response.json();
-        
+
         if (apiResponse.ok && apiResponse.job) {
           const job = apiResponse.job;
-          
+
           setProgress(job.progress || 0);
           setStatusMessage(job.status === 'running' ? '正在生成套餐图...' : '处理中...');
 
@@ -124,9 +133,8 @@ export default function MultiFusionPage() {
             setCurrentJobId(null);
             setProgress(100);
             setStatusMessage('套餐图生成完成！');
-            
+            console.log('多图融合成功 - 文件名:', fileNamesRef.current[0]);
 
-            
             return;
           } else if (job.status === 'failed') {
             throw new Error(job.error || '处理失败');
@@ -168,13 +176,17 @@ export default function MultiFusionPage() {
     setStatusMessage('正在上传图片...');
 
     try {
+      // 收集源图片文件名(多图融合使用第一张图片的文件名)
+      const fileNames = sourceImages.map(img => img.name);
+      console.log('多图融合 - 收集的文件名:', fileNames);
+
       const formData = new FormData();
-      
+
       // 添加所有源图片
       sourceImages.forEach((file, index) => {
         formData.append(`sourceImages`, file);
       });
-      
+
       // 添加目标背景
       if (targetImage) {
         formData.append('targetImage', targetImage);
@@ -192,18 +204,19 @@ export default function MultiFusionPage() {
       if (data.success) {
         // 如果API直接返回了结果，立即显示
         if (data.result) {
+          // 同步模式：保存文件名到ref
+          fileNamesRef.current = fileNames;
           setResult(data.result.imageUrl || data.result);
           setIsProcessing(false);
           setCurrentJobId(null);
           setProgress(100);
           setStatusMessage('套餐图生成完成！');
-
-
+          console.log('多图融合同步完成 - 文件名:', fileNames[0]);
         } else {
-          // 否则开始轮询
+          // 否则开始轮询，传递文件名
           setCurrentJobId(data.jobId);
           setStatusMessage('开始处理...');
-          pollJobStatus(data.jobId);
+          pollJobStatus(data.jobId, fileNames);
         }
       } else {
         throw new Error(data.error || '提交失败');
@@ -218,10 +231,14 @@ export default function MultiFusionPage() {
   // 下载结果
   const downloadResult = () => {
     if (!result) return;
-    
+
+    // 使用第一张源图片的原始文件名或生成默认名称
+    const filename = fileNamesRef.current[0] || `multi-fusion-${Date.now()}.png`;
+    console.log('多图融合下载 - 使用文件名:', filename);
+
     const link = document.createElement('a');
     link.href = result;
-    link.download = `multi-fusion-${Date.now()}.png`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
