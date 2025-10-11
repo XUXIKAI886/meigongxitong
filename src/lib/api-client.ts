@@ -475,77 +475,78 @@ export class ProductRefineApiClient {
     targetImage: string; // base64 data URL format - 包含目标背景的图片
     prompt: string;
   }) {
-    // Extract base64 data from target image
-    const targetBase64 = params.targetImage.split(',')[1];
-    const targetMimeType = params.targetImage.match(/data:([^;]+);/)?.[1] || 'image/png';
+    // 确保目标图片是完整的 data URL 格式
+    const targetImageUrl = params.targetImage.startsWith('data:')
+      ? params.targetImage
+      : `data:image/png;base64,${params.targetImage}`;
 
-    // Build parts array with prompt and all images
-    const parts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [
-      { text: params.prompt }
+    // 构建 content 数组：prompt + 所有源图片 + 目标图片
+    const contentArray: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
+      {
+        type: 'text',
+        text: params.prompt
+      }
     ];
 
-    // Add all source images
-    params.sourceImages.forEach((sourceImage, index) => {
-      const sourceBase64 = sourceImage.split(',')[1];
-      const sourceMimeType = sourceImage.match(/data:([^;]+);/)?.[1] || 'image/png';
+    // 添加所有源图片
+    params.sourceImages.forEach((sourceImage) => {
+      const sourceImageUrl = sourceImage.startsWith('data:')
+        ? sourceImage
+        : `data:image/png;base64,${sourceImage}`;
 
-      parts.push({
-        inline_data: {
-          mime_type: sourceMimeType,
-          data: sourceBase64
+      contentArray.push({
+        type: 'image_url',
+        image_url: {
+          url: sourceImageUrl
         }
       });
     });
 
-    // Add target image
-    parts.push({
-      inline_data: {
-        mime_type: targetMimeType,
-        data: targetBase64
+    // 添加目标背景图片
+    contentArray.push({
+      type: 'image_url',
+      image_url: {
+        url: targetImageUrl
       }
     });
 
+    // OpenAI兼容格式的请求体
     const requestBody = {
-      contents: [{
-        parts: parts
-      }],
-      generationConfig: {
-        responseModalities: ['TEXT', 'IMAGE'],
-        imageGenerationConfig: {
-          aspectRatio: '4:3', // 1200x900 比例
-          includeRaiFiltering: false,
-          personGeneration: 'DONT_ALLOW'
+      model: process.env.PRODUCT_REFINE_MODEL_NAME || 'gemini-2.5-flash-image-preview',
+      messages: [
+        {
+          role: 'user',
+          content: contentArray
         }
-      }
+      ],
+      max_tokens: 4096,
+      temperature: 0.7
     };
 
     // Debug logging
-    console.log('Multi-Image Fusion API Request (Gemini Native):', {
+    console.log('Multi-Image Fusion API Request (OpenAI Compatible):', {
       url: this.client.defaults.baseURL,
-      model: 'gemini-2.5-flash-image-preview',
+      model: requestBody.model,
       prompt: params.prompt.substring(0, 100) + '...',
       sourceImagesCount: params.sourceImages.length,
-      targetImageSize: targetBase64.length
+      targetImageUrlLength: targetImageUrl.length
     });
 
     try {
       const response = await this.client.post('', requestBody, {
-        params: {
-          key: process.env.PRODUCT_REFINE_API_KEY
-        },
         timeout: 120000 // 增加到2分钟超时
       });
 
-      console.log('Multi-Image Fusion API Response (Gemini Native):', {
+      console.log('Multi-Image Fusion API Response (OpenAI Compatible):', {
         status: response.status,
         hasData: !!response.data,
-        candidatesCount: response.data?.candidates?.length
+        choicesCount: response.data?.choices?.length
       });
 
-      // Convert Gemini response format to our expected format
-      return this.convertGeminiResponse(response.data);
+      // 使用OpenAI响应转换器
+      return await this.convertOpenAIResponse(response.data);
     } catch (error: any) {
-      console.error('Multi-Image Fusion API Error (Gemini Native):', {
+      console.error('Multi-Image Fusion API Error (OpenAI Compatible):', {
         status: error.response?.status,
         statusText: error.response?.statusText,
         data: error.response?.data,
