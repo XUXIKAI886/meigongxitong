@@ -1,14 +1,15 @@
 import { BaseApiClient } from '../base/BaseApiClient';
 import axios, { AxiosInstance } from 'axios';
 
-// 单品图API客户端 (使用Gemini原生格式)
+// 单品图API客户端 (使用OpenAI兼容格式 - 新API)
 export class ProductImageApiClient {
   private client: AxiosInstance;
 
   constructor() {
     this.client = axios.create({
-      baseURL: 'http://jeniya.top/v1beta/models/gemini-2.5-flash-image-preview:generateContent',
+      baseURL: process.env.PRODUCT_IMAGE_API_BASE_URL,
       headers: {
+        'Authorization': `Bearer ${process.env.PRODUCT_IMAGE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       timeout: 60000,
@@ -22,50 +23,55 @@ export class ProductImageApiClient {
     mask?: string;
     n?: number;
   }) {
-    const base64Data = params.image.split(',')[1];
-    const mimeType = params.image.match(/data:([^;]+);/)?.[1] || 'image/png';
+    // 确保使用完整的 data URL 格式
+    const imageUrl = params.image.startsWith('data:')
+      ? params.image
+      : `data:image/png;base64,${params.image}`;
 
+    // OpenAI兼容格式的请求体
     const requestBody = {
-      contents: [{
-        parts: [
-          { text: params.prompt },
-          {
-            inline_data: {
-              mime_type: mimeType,
-              data: base64Data
+      model: process.env.PRODUCT_IMAGE_MODEL_NAME || 'gemini-2.5-flash-image-preview',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: params.prompt
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: imageUrl
+              }
             }
-          }
-        ]
-      }],
-      generationConfig: {
-        responseModalities: ['TEXT', 'IMAGE']
-      }
+          ]
+        }
+      ],
+      max_tokens: 4096,
+      temperature: 0.7
     };
 
-    console.log('Product Image API Request (Gemini Native):', {
+    console.log('Product Image API Request (OpenAI Compatible):', {
       url: this.client.defaults.baseURL,
-      model: 'gemini-2.5-flash-image-preview',
+      model: requestBody.model,
       prompt: params.prompt.substring(0, 100) + '...',
-      imageSize: base64Data.length,
-      mimeType: mimeType
+      imageUrlLength: imageUrl.length,
+      hasImage: imageUrl.startsWith('data:image')
     });
 
     try {
-      const response = await this.client.post('', requestBody, {
-        params: {
-          key: process.env.PRODUCT_IMAGE_API_KEY
-        }
-      });
+      const response = await this.client.post('', requestBody);
 
-      console.log('Product Image API Response (Gemini Native):', {
+      console.log('Product Image API Response (OpenAI Compatible):', {
         status: response.status,
         hasData: !!response.data,
-        candidatesCount: response.data?.candidates?.length
+        choicesCount: response.data?.choices?.length
       });
 
-      return this.convertGeminiResponse(response.data);
+      return this.convertOpenAIResponse(response.data);
     } catch (error: any) {
-      console.error('Product Image API Error (Gemini Native):', {
+      console.error('Product Image API Error (OpenAI Compatible):', {
         status: error.response?.status,
         statusText: error.response?.statusText,
         data: error.response?.data,
@@ -75,45 +81,47 @@ export class ProductImageApiClient {
     }
   }
 
-  private convertGeminiResponse(geminiResponse: any) {
-    console.log('Converting Gemini Response...');
-    console.log('Candidates:', geminiResponse.candidates?.length || 0);
+  private convertOpenAIResponse(openAIResponse: any) {
+    console.log('Converting OpenAI Compatible Response...');
+    console.log('Choices:', openAIResponse.choices?.length || 0);
 
-    const candidates = geminiResponse.candidates || [];
+    const choices = openAIResponse.choices || [];
     const imageData = [];
 
-    for (const candidate of candidates) {
-      console.log('Processing candidate:', JSON.stringify(candidate, null, 2));
-      const parts = candidate.content?.parts || [];
-      console.log('Parts count:', parts.length);
+    for (const choice of choices) {
+      console.log('Processing choice:', JSON.stringify(choice, null, 2));
+      const content = choice.message?.content || choice.delta?.content || '';
 
-      for (const part of parts) {
-        console.log('Processing part:', JSON.stringify(part, null, 2));
+      console.log('Content type:', typeof content);
+      console.log('Content preview:', content.substring(0, 200));
 
-        if (part.inline_data || part.inlineData) {
-          const inlineData = part.inline_data || part.inlineData;
-          const base64Data = inlineData.data;
-          const mimeType = inlineData.mime_type || inlineData.mimeType;
+      // 检查content是否包含base64图片数据
+      if (typeof content === 'string') {
+        // 尝试匹配 data URL 格式
+        const dataUrlMatch = content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+        if (dataUrlMatch) {
+          const dataUrl = dataUrlMatch[0];
+          const base64Data = dataUrl.split(',')[1];
 
-          console.log('Found image data:', {
-            base64Length: base64Data?.length,
-            mimeType: mimeType
+          console.log('Found image data URL:', {
+            base64Length: base64Data?.length
           });
 
-          if (!base64Data || base64Data.length === 0) {
-            console.warn('Empty base64 data found, skipping...');
-            continue;
+          if (base64Data && base64Data.length > 0) {
+            imageData.push({
+              url: dataUrl,
+              b64_json: base64Data
+            });
           }
-
-          const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
+        }
+        // 如果content本身就是纯base64，添加data URL前缀
+        else if (/^[A-Za-z0-9+/]+=*$/.test(content.substring(0, 100))) {
+          console.log('Found pure base64 data, adding data URL prefix');
+          const dataUrl = `data:image/png;base64,${content}`;
           imageData.push({
             url: dataUrl,
-            b64_json: base64Data
+            b64_json: content
           });
-
-          console.log('Successfully processed image data');
-          break;
         }
       }
 
@@ -121,10 +129,12 @@ export class ProductImageApiClient {
     }
 
     if (imageData.length === 0) {
-      console.error('No valid image data found in response');
-      throw new Error('No valid image data found in Gemini response');
+      console.error('No valid image data found in OpenAI response');
+      console.error('Full response structure:', JSON.stringify(openAIResponse, null, 2));
+      throw new Error('No valid image data found in OpenAI compatible response');
     }
 
+    console.log('Successfully processed image data');
     return {
       data: imageData
     };
