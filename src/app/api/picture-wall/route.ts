@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ImageApiClient, ChatApiClient, withRetry, rateLimiter, handleApiError } from '@/lib/api';
+import { ImageApiClient } from '@/lib/api/clients/ImageApiClient';
+import { ChatApiClient } from '@/lib/api/clients/ChatApiClient';
+import { withRetry, rateLimiter, handleApiError } from '@/lib/api-client';
 import { JobQueue, jobRunner } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
 import { config } from '@/lib/config';
@@ -110,7 +112,7 @@ ${compositionVariations[i]}
         const response = await withRetry(async () => {
           return await this.imageClient.generateImage({
             prompt: enhancedPrompt,
-            size: config.images.sizes.pictureWall,
+            size: config.images.sizes.pictureWall
           });
         });
 
@@ -125,14 +127,21 @@ ${compositionVariations[i]}
           continue;
         }
 
-        // Download and process the generated image
-        const imageResponse = await fetch(imageData.url);
-        if (!imageResponse.ok) {
-          console.error(`Failed to download image ${i + 1}`);
-          continue;
+        // Handle data URL from Seedream API
+        let imageBuffer: Buffer;
+        if (imageData.url.startsWith('data:')) {
+          // Data URL format - extract base64
+          const base64Data = imageData.url.split(',')[1];
+          imageBuffer = Buffer.from(base64Data, 'base64');
+        } else {
+          // HTTP URL - download the image
+          const imageResponse = await fetch(imageData.url);
+          if (!imageResponse.ok) {
+            console.error(`Failed to download image ${i + 1}`);
+            continue;
+          }
+          imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
         }
-
-        const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
 
         // Resize to exact dimensions (跳过Sharp在Vercel上,因为不可用)
         let processedBuffer: Buffer;

@@ -43,7 +43,7 @@ Value: https://newapi.aicohere.org/v1/chat/completions
 变量 5/16
 ---
 Name: GEMINI_MODEL_NAME
-Value: gemini-2.5-flash-image-preview
+Value: nano-banana
 
 变量 6/16
 ---
@@ -62,7 +62,7 @@ Value: https://newapi.aicohere.org/v1/chat/completions
 变量 8/16
 ---
 Name: PRODUCT_IMAGE_MODEL_NAME
-Value: gemini-2.5-flash-image-preview
+Value: nano-banana
 
 变量 9/16
 ---
@@ -77,7 +77,7 @@ Value: https://newapi.aicohere.org/v1/chat/completions
 变量 11/16
 ---
 Name: PRODUCT_REFINE_MODEL_NAME
-Value: gemini-2.5-flash-image-preview
+Value: nano-banana
 
 变量 12/16
 ---
@@ -92,7 +92,7 @@ Value: https://newapi.aicohere.org/v1/chat/completions
 变量 14/16
 ---
 Name: CHAT_MODEL_NAME
-Value: gemini-2.5-flash-image-preview
+Value: nano-banana
 
 变量 15/16
 ---

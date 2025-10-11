@@ -28,7 +28,7 @@ export class ProductRefineApiClient {
 
     // OpenAI兼容格式的请求体
     const requestBody = {
-      model: process.env.PRODUCT_REFINE_MODEL_NAME || 'gemini-2.5-flash-image-preview',
+      model: process.env.PRODUCT_REFINE_MODEL_NAME || 'nano-banana',
       messages: [
         {
           role: 'user',
@@ -95,7 +95,7 @@ export class ProductRefineApiClient {
 
     // OpenAI兼容格式 - 多图输入
     const requestBody = {
-      model: process.env.PRODUCT_REFINE_MODEL_NAME || 'gemini-2.5-flash-image-preview',
+      model: process.env.PRODUCT_REFINE_MODEL_NAME || 'nano-banana',
       messages: [
         {
           role: 'user',

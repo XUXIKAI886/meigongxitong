@@ -272,7 +272,7 @@ export class ProductImageApiClient {
     // Debug logging
     console.log('Product Image API Request (Gemini Native):', {
       url: this.client.defaults.baseURL,
-      model: 'gemini-2.5-flash-image-preview',
+      model: 'nano-banana',
       prompt: params.prompt.substring(0, 100) + '...',
       imageSize: base64Data.length,
       mimeType: mimeType
@@ -434,7 +434,7 @@ export class ProductRefineApiClient {
     // Debug logging
     console.log('Product Refine API Request (Gemini Native):', {
       url: this.client.defaults.baseURL,
-      model: 'gemini-2.5-flash-image-preview',
+      model: 'nano-banana',
       prompt: params.prompt.substring(0, 100) + '...',
       imageSize: base64Data.length,
       mimeType: mimeType

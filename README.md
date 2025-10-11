@@ -443,6 +443,23 @@ addResults(newResults, false);
 
 ## 🆕 最新更新
 
+### v2.3.2 - 2025年10月 🔄 **API配置回退版**
+- ✅ **Logo工作室API回退**：Logo设计工作室恢复使用Doubao API
+  - 移除Seedream API客户端，回退到稳定的Doubao API
+  - 保持头像阶段2店名替换功能完整性
+  - 确保店招、海报、Logo生成的稳定性
+- ✅ **门头工具API回退**：门头招牌文字替换恢复Doubao API
+  - 恢复size参数传递，确保输出分辨率正确
+  - 修复Seedream API兼容性问题
+- ✅ **图片墙工具API回退**：图片墙生成恢复Doubao API
+  - 恢复批量图片生成的稳定性
+  - 确保三张图片风格一致性
+- ✅ **环境配置简化**：移除SEEDREAM_*配置，统一使用IMAGE_*配置
+- ✅ **代码清理**：删除SeedreamApiClient.ts文件，保持代码库整洁
+- 🔧 **API配置**：
+  - Logo/门头/图片墙：Doubao API (`doubao-seedream-4-0-250828`)
+  - 其他工具：Gemini API (`nano-banana`)
+
 ### v2.3.1 - 2025年10月 🔥 **文件名保持与修复版**
 - ✅ **文件名保持功能**：为背景融合和多图融合工具添加原始文件名保持功能
   - 背景融合工具：单张和批量模式都保持源图片原始文件名
@@ -468,7 +485,7 @@ addResults(newResults, false);
 - 🔧 **新API端点**：
   - 旧端点: `jeniya.top` (已废弃)
   - 新端点: `newapi.aicohere.org` ✅
-  - 新模型: `gemini-2.5-flash-image-preview`
+  - 新模型: `nano-banana`
   - 新密钥: `sk-nonnwG0UNTsUcnyUDEkKfm4uBqSlRhBIBEMEOwDNJ2mvYM3o`
 
 ### v2.2.0 - 2025年10月 🔥 **Vercel部署完美适配版**

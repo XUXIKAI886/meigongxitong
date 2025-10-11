@@ -37,7 +37,7 @@
 
 #### `PRODUCT_IMAGE_MODEL_NAME`
 - **说明**: 单品图功能使用的AI模型名称
-- **当前值**: `gemini-2.5-flash-image-preview`
+- **当前值**: `nano-banana`
 - **用途**: 单品图抠图和背景生成
 - **必填**: ✅ 是
 
@@ -150,7 +150,7 @@
 环境: Production, Preview, Development (全选)
 ---
 变量名: PRODUCT_IMAGE_MODEL_NAME
-值: gemini-2.5-flash-image-preview
+值: nano-banana
 环境: Production, Preview, Development (全选)
 ---
 变量名: PRODUCT_IMAGE_API_KEY
@@ -232,7 +232,7 @@ IMAGE_API_KEY=sk-qNMLqt90BOryg38Ey21HI4QWQl2SObYybMli28qginQolPaE
 
 # Product Image API Configuration
 PRODUCT_IMAGE_API_BASE_URL=https://jeniya.top/v1/images/generations
-PRODUCT_IMAGE_MODEL_NAME=gemini-2.5-flash-image-preview
+PRODUCT_IMAGE_MODEL_NAME=nano-banana
 PRODUCT_IMAGE_API_KEY=sk-AHP64E0ntf5VEltYLSV17wTLYeV4WZ3ucJzf72u0UHXf0Hos
 
 # Product Refine API Configuration

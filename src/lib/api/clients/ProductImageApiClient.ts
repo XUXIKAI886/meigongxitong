@@ -30,7 +30,7 @@ export class ProductImageApiClient {
 
     // OpenAI兼容格式的请求体
     const requestBody = {
-      model: process.env.PRODUCT_IMAGE_MODEL_NAME || 'gemini-2.5-flash-image-preview',
+      model: process.env.PRODUCT_IMAGE_MODEL_NAME || 'nano-banana',
       messages: [
         {
           role: 'user',

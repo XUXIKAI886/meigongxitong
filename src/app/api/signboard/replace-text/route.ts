@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ImageApiClient, withRetry, rateLimiter, handleApiError } from '@/lib/api-client';
+import { ImageApiClient } from '@/lib/api/clients/ImageApiClient';
+import { withRetry, rateLimiter, handleApiError } from '@/lib/api-client';
 import { JobQueue, jobRunner } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
 import { config } from '@/lib/config';
@@ -43,13 +44,20 @@ class SignboardTextReplaceProcessor {
       throw new Error('No image URL in response');
     }
 
-    // Download the generated image
-    const imageResponse = await fetch(imageData.url);
-    if (!imageResponse.ok) {
-      throw new Error('Failed to download generated image');
+    // Handle data URL from Seedream API
+    let generatedImageBuffer: Buffer;
+    if (imageData.url.startsWith('data:')) {
+      // Data URL format - extract base64
+      const base64Data = imageData.url.split(',')[1];
+      generatedImageBuffer = Buffer.from(base64Data, 'base64');
+    } else {
+      // HTTP URL - download the image
+      const imageResponse = await fetch(imageData.url);
+      if (!imageResponse.ok) {
+        throw new Error('Failed to download generated image');
+      }
+      generatedImageBuffer = Buffer.from(await imageResponse.arrayBuffer());
     }
-
-    const generatedImageBuffer = Buffer.from(await imageResponse.arrayBuffer());
 
     // Save the processed image
     const savedFile = await FileManager.saveBuffer(

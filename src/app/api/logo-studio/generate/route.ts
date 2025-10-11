@@ -305,7 +305,7 @@ CRITICAL: 无论生成什么类型的设计（Logo、店招、海报），都必
 
 // Logo设计工作室融合处理器
 class LogoStudioFusionProcessor {
-  private imageClient = new ImageApiClient();
+  private imageClient = new ImageApiClient();  // 使用Doubao API
   private chatClient = new ChatApiClient();
   private geminiClient = new ProductRefineApiClient();
 
@@ -503,7 +503,7 @@ class LogoStudioFusionProcessor {
         return await this.imageClient.generateImageWithMultipleImages({
           images: [stage1ImageDataUrl!], // 使用阶段1生成的图片
           prompt: storeNamePrompt,
-          size: sizeMap[type]
+          size: sizeMap.avatar
         });
       });
 
