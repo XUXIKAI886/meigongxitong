@@ -12,7 +12,6 @@ import SourceImageUpload from './components/SourceImageUpload';
 import TargetImageUpload from './components/TargetImageUpload';
 import ProcessingStatus from './components/ProcessingStatus';
 import ResultDisplay from './components/ResultDisplay';
-import TemplateSelector from './components/TemplateSelector';
 
 export default function FoodReplacementPage() {
   const {
@@ -77,12 +76,12 @@ export default function FoodReplacementPage() {
     setTemplatePreview(template.url, isBatchMode);
   };
 
-  // 显示模板选择器
-  const handleShowTemplateSelector = () => {
-    if (templates.length === 0) {
+  // 切换模板选择器显示
+  const handleToggleTemplateSelector = (show: boolean) => {
+    setShowTemplateSelector(show);
+    if (show && templates.length === 0) {
       loadTemplates();
     }
-    setShowTemplateSelector(true);
   };
 
   // 开始处理
@@ -337,7 +336,13 @@ export default function FoodReplacementPage() {
                 batchTargetImagePreview={batchTargetImagePreview}
                 batchTargetDropzone={batchTargetDropzone}
                 selectedTemplate={selectedTemplate}
-                onShowTemplateSelector={handleShowTemplateSelector}
+                showTemplateSelector={showTemplateSelector}
+                templates={templates}
+                loadingTemplates={loadingTemplates}
+                onToggleTemplateSelector={handleToggleTemplateSelector}
+                onSelectTemplate={handleTemplateSelect}
+                onClearTemplate={clearTemplateSelection}
+                onLoadTemplates={loadTemplates}
               />
             </div>
 
@@ -369,16 +374,6 @@ export default function FoodReplacementPage() {
           </div>
         </div>
 
-        {/* 模板选择器 */}
-        <TemplateSelector
-          show={showTemplateSelector}
-          templates={templates}
-          selectedTemplate={selectedTemplate}
-          loadingTemplates={loadingTemplates}
-          onClose={() => setShowTemplateSelector(false)}
-          onSelectTemplate={handleTemplateSelect}
-          onLoadTemplates={loadTemplates}
-        />
       </div>
     </div>
   );
