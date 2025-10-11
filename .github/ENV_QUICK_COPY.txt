@@ -1,75 +1,105 @@
 ==========================================================
-Vercel 环境变量配置 - 快速复制版
+Vercel 环境变量配置 - 快速复制版 (🆕 Gemini API已更新)
 ==========================================================
 
-📋 共13个环境变量，请在Vercel Dashboard中逐个添加：
+📋 共16个环境变量，请在Vercel Dashboard中逐个添加：
 Settings → Environment Variables → Add
 
 每个变量都要选择环境: Production, Preview, Development (全选)
 
 ==========================================================
 
-变量 1/13
+🔴 重要提示：Gemini API已迁移到新端点！
+旧端点: jeniya.top (已废弃)
+新端点: newapi.aicohere.org ✅
+新密钥: sk-nonnwG0UNTsUcnyUDEkKfm4uBqSlRhBIBEMEOwDNJ2mvYM3o
+
+==========================================================
+
+变量 1/16 (豆包API - Logo/图片墙/门头招牌)
 ---
 Name: IMAGE_API_BASE_URL
 Value: https://jeniya.top/v1/images/generations
 
-变量 2/13
+变量 2/16
 ---
 Name: IMAGE_MODEL_NAME
 Value: doubao-seedream-4-0-250828
 
-变量 3/13
+变量 3/16
 ---
 Name: IMAGE_API_KEY
 Value: sk-qNMLqt90BOryg38Ey21HI4QWQl2SObYybMli28qginQolPaE
 
-变量 4/13
+==========================================================
+🆕 统一Gemini API配置 (新增)
+==========================================================
+
+变量 4/16
+---
+Name: GEMINI_API_BASE_URL
+Value: https://newapi.aicohere.org/v1/chat/completions
+
+变量 5/16
+---
+Name: GEMINI_MODEL_NAME
+Value: gemini-2.5-flash-image-preview
+
+变量 6/16
+---
+Name: GEMINI_API_KEY
+Value: sk-nonnwG0UNTsUcnyUDEkKfm4uBqSlRhBIBEMEOwDNJ2mvYM3o
+
+==========================================================
+Gemini功能专用配置 (使用统一Gemini API)
+==========================================================
+
+变量 7/16 (单品图换背景专用)
 ---
 Name: PRODUCT_IMAGE_API_BASE_URL
-Value: https://jeniya.top/v1/images/generations
+Value: https://newapi.aicohere.org/v1/chat/completions
 
-变量 5/13
+变量 8/16
 ---
 Name: PRODUCT_IMAGE_MODEL_NAME
 Value: gemini-2.5-flash-image-preview
 
-变量 6/13
+变量 9/16
 ---
 Name: PRODUCT_IMAGE_API_KEY
-Value: sk-AHP64E0ntf5VEltYLSV17wTLYeV4WZ3ucJzf72u0UHXf0Hos
+Value: sk-nonnwG0UNTsUcnyUDEkKfm4uBqSlRhBIBEMEOwDNJ2mvYM3o
 
-变量 7/13
+变量 10/16 (产品精修专用)
 ---
 Name: PRODUCT_REFINE_API_BASE_URL
-Value: http://jeniya.top/v1beta/models/gemini-2.5-flash-image-preview:generateContent
+Value: https://newapi.aicohere.org/v1/chat/completions
 
-变量 8/13
+变量 11/16
 ---
 Name: PRODUCT_REFINE_MODEL_NAME
-Value: gemini-2.5-flash-lite
+Value: gemini-2.5-flash-image-preview
 
-变量 9/13
+变量 12/16
 ---
 Name: PRODUCT_REFINE_API_KEY
-Value: sk-AHP64E0ntf5VEltYLSV17wTLYeV4WZ3ucJzf72u0UHXf0Hos
+Value: sk-nonnwG0UNTsUcnyUDEkKfm4uBqSlRhBIBEMEOwDNJ2mvYM3o
 
-变量 10/13
+变量 13/16 (聊天/分析专用)
 ---
 Name: CHAT_API_BASE_URL
-Value: https://jeniya.top/v1/chat/completions
+Value: https://newapi.aicohere.org/v1/chat/completions
 
-变量 11/13
+变量 14/16
 ---
 Name: CHAT_MODEL_NAME
-Value: gemini-2.5-flash-lite
+Value: gemini-2.5-flash-image-preview
 
-变量 12/13
+变量 15/16
 ---
 Name: CHAT_API_KEY
-Value: sk-AHP64E0ntf5VEltYLSV17wTLYeV4WZ3ucJzf72u0UHXf0Hos
+Value: sk-nonnwG0UNTsUcnyUDEkKfm4uBqSlRhBIBEMEOwDNJ2mvYM3o
 
-变量 13/13
+变量 16/16 (存储配置)
 ---
 Name: STORAGE_ROOT
 Value: ./.uploads
@@ -78,19 +108,42 @@ Value: ./.uploads
 ✅ 添加完成后，点击 "Redeploy" 重新部署！
 ==========================================================
 
-功能对应关系：
-- F1 单品图换背景 → PRODUCT_IMAGE_*
-- F2 Logo设计 → IMAGE_* + CHAT_*
-- F3 门头招牌 → IMAGE_*
-- F4 图片墙 → IMAGE_*
-- F5 产品精修 → PRODUCT_REFINE_*
-- F6 食物替换 → PRODUCT_REFINE_*
-- F7 背景融合 → PRODUCT_REFINE_*
-- F8 多图融合 → PRODUCT_REFINE_*
+功能对应关系 (🆕 已更新):
+- F2 Logo设计工作室 → IMAGE_* (豆包API)
+- F3 门头招牌替换 → IMAGE_* (豆包API)
+- F4 图片墙生成 → IMAGE_* (豆包API)
+- F5 产品精修 → PRODUCT_REFINE_* (Gemini新API ✅)
+- F6 食物替换 → PRODUCT_REFINE_* (Gemini新API ✅)
+- F7 背景融合 → PRODUCT_REFINE_* (Gemini新API ✅)
+- F8 多图融合 → PRODUCT_REFINE_* (Gemini新API ✅)
+- 图片分析/聊天 → CHAT_* (Gemini新API ✅)
 
-⚠️ 安全提示：
+==========================================================
+📝 变更说明
+==========================================================
+
+本次更新内容:
+✅ 新增统一Gemini API配置 (GEMINI_*)
+✅ 迁移所有Gemini功能到新端点 (newapi.aicohere.org)
+✅ 更新API密钥为新密钥
+✅ 统一使用OpenAI兼容格式
+
+旧配置对比:
+❌ 旧端点: http://jeniya.top/v1beta/models/...
+✅ 新端点: https://newapi.aicohere.org/v1/chat/completions
+
+❌ 旧密钥: sk-AHP64E0ntf5VEltYLSV17wTLYeV4WZ3ucJzf72u0UHXf0Hos
+✅ 新密钥: sk-nonnwG0UNTsUcnyUDEkKfm4uBqSlRhBIBEMEOwDNJ2mvYM3o
+
+⚠️ 重要: 请确保在Vercel中更新这些环境变量后重新部署！
+
+==========================================================
+⚠️ 安全提示
+==========================================================
+
 - API_KEY是敏感信息，请妥善保管
 - 定期更换API密钥
 - 不要公开分享密钥
+- 建议使用Vercel的环境变量加密功能
 
 📖 详细说明请查看: .github/ENV_VARIABLES_GUIDE.md
