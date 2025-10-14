@@ -15,7 +15,8 @@ import {
   RefreshCwIcon,
   BlendIcon,
   LayersIcon,
-  HardDriveIcon
+  HardDriveIcon,
+  Trash2Icon
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -117,6 +118,16 @@ export default function HomePage() {
       color: 'bg-gradient-to-br from-purple-500 to-pink-600',
       outputSize: '1200×900px',
       features: ['多图融合', '套餐展示', '风格统一', '商业品质', '智能排列']
+    },
+    {
+      id: 'remove-food',
+      title: '图片去食物工具（保留空器皿）',
+      description: '智能移除图片中的食物，完美保留空器皿、背景和所有文字内容（店名、价格、标签等）',
+      icon: Trash2Icon,
+      href: '/remove-food',
+      color: 'bg-gradient-to-br from-cyan-500 to-blue-600',
+      outputSize: '保持原图尺寸',
+      features: ['食物移除', '器皿保留', '背景保持', '文字保留', '批量处理']
     }
   ];
 
@@ -197,13 +208,12 @@ export default function HomePage() {
         <div className="container mx-auto px-4 relative z-10">
           <div className="text-center mb-16">
             <h3 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              6大核心功能模块
+              7大核心功能模块
             </h3>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               专业AI技术驱动，为您的外卖业务提供全方位的视觉设计解决方案
             </p>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => {
               const IconComponent = feature.icon;

@@ -54,9 +54,14 @@ export default function LogoStudioPage() {
 
   // 独立存储各个类型的生成结果
   const [avatarResult, setAvatarResult] = useState<string | null>(null);
+  const [avatarStep1Result, setAvatarStep1Result] = useState<string | null>(null); // 步骤1中间结果
   const [storefrontResult, setStorefrontResult] = useState<string | null>(null);
   const [posterResult, setPosterResult] = useState<string | null>(null);
   const shouldStopPollingRef = useRef(false);
+
+  // 头像两步骤的加载状态
+  const [avatarStep1Generating, setAvatarStep1Generating] = useState(false);
+  const [avatarStep2Generating, setAvatarStep2Generating] = useState(false);
 
   // 三种类型的模板状态
   const [avatarTemplateCategories, setAvatarTemplateCategories] = useState<LogoTemplateCategory[]>([]);
@@ -382,6 +387,245 @@ export default function LogoStudioPage() {
       alert('生成失败，请重试');
       resetAllLoadingStates();
     }
+  };
+
+  // 步骤1：仅调用Gemini API进行食物替换
+  const handleAvatarStep1 = async () => {
+    // 验证输入
+    if (!dishImage) {
+      alert('请上传主推菜品图');
+      return;
+    }
+    if (!avatarTemplate) {
+      alert('请选择头像模板');
+      return;
+    }
+
+    setAvatarStep1Generating(true);
+    setAvatarStep1Result(null);
+    shouldStopPollingRef.current = false;
+
+    try {
+      const formData = new FormData();
+      formData.append('storeName', '占位符'); // 步骤1不需要店铺名
+      formData.append('templateStoreName', '占位符');
+      formData.append('generateType', 'avatar');
+      formData.append('avatarStage', 'step1'); // 标记为步骤1
+
+      // 添加主推菜品图
+      formData.append('dishImage', dishImage);
+
+      // 添加头像模板
+      const avatarResponse = await fetch(avatarTemplate.url);
+      const avatarBlob = await avatarResponse.blob();
+      formData.append('avatarTemplate', avatarBlob, `avatar-${avatarTemplate.id}.png`);
+      formData.append('avatarTemplateId', avatarTemplate.id);
+
+      const response = await fetch('/api/logo-studio/generate', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('步骤1生成请求失败');
+      }
+
+      const responseData = await response.json();
+
+      // 检测同步响应 (Vercel) vs 异步响应 (本地)
+      if (responseData.data && responseData.data.avatarUrl) {
+        console.log('步骤1完成(同步模式):', responseData.data.avatarUrl);
+        setAvatarStep1Result(responseData.data.avatarUrl);
+        setAvatarStep1Generating(false);
+      } else if (responseData.jobId) {
+        // 本地异步模式
+        console.log(`步骤1开始轮询，jobId: ${responseData.jobId}`);
+        pollAvatarStep1Status(responseData.jobId);
+      }
+    } catch (error) {
+      console.error('步骤1生成失败:', error);
+      alert('步骤1生成失败，请重试');
+      setAvatarStep1Generating(false);
+    }
+  };
+
+  // 步骤2：使用步骤1的结果，调用Doubao API替换店铺名
+  const handleAvatarStep2 = async () => {
+    // 验证步骤1是否完成
+    if (!avatarStep1Result) {
+      alert('请先完成步骤1：食物替换');
+      return;
+    }
+    if (!storeName.trim()) {
+      alert('请填写店铺名称');
+      return;
+    }
+    if (!templateStoreName.trim()) {
+      alert('请填写模板店铺名');
+      return;
+    }
+
+    setAvatarStep2Generating(true);
+    shouldStopPollingRef.current = false;
+
+    try {
+      const formData = new FormData();
+      formData.append('storeName', storeName.trim());
+      formData.append('templateStoreName', templateStoreName.trim());
+      formData.append('generateType', 'avatar');
+      formData.append('avatarStage', 'step2'); // 标记为步骤2
+      formData.append('step1ResultUrl', avatarStep1Result); // 传入步骤1的结果URL
+
+      const response = await fetch('/api/logo-studio/generate', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('步骤2生成请求失败');
+      }
+
+      const responseData = await response.json();
+
+      // 检测同步响应 (Vercel) vs 异步响应 (本地)
+      if (responseData.data && responseData.data.avatarUrl) {
+        console.log('步骤2完成(同步模式):', responseData.data.avatarUrl);
+        setAvatarResult(responseData.data.avatarUrl);
+        setAvatarStep2Generating(false);
+      } else if (responseData.jobId) {
+        // 本地异步模式
+        console.log(`步骤2开始轮询，jobId: ${responseData.jobId}`);
+        pollAvatarStep2Status(responseData.jobId);
+      }
+    } catch (error) {
+      console.error('步骤2生成失败:', error);
+      alert('步骤2生成失败，请重试');
+      setAvatarStep2Generating(false);
+    }
+  };
+
+  // 步骤1轮询函数
+  const pollAvatarStep1Status = async (jobId: string) => {
+    let pollAttempts = 0;
+    const maxPollAttempts = 150;
+
+    const poll = async () => {
+      if (shouldStopPollingRef.current || pollAttempts >= maxPollAttempts) {
+        setAvatarStep1Generating(false);
+        return;
+      }
+
+      pollAttempts++;
+
+      try {
+        const response = await fetch(`/api/jobs/${jobId}`);
+        if (response.status === 404) {
+          if (pollAttempts > 10) {
+            setAvatarStep1Generating(false);
+            return;
+          }
+          setTimeout(poll, 2000);
+          return;
+        }
+
+        const apiResponse = await response.json();
+        if (apiResponse.ok && apiResponse.job) {
+          const status: JobStatus = apiResponse.job;
+
+          if (status.status === 'succeeded' && status.result?.avatarUrl) {
+            console.log('步骤1完成:', status.result.avatarUrl);
+            setAvatarStep1Result(status.result.avatarUrl);
+            setAvatarStep1Generating(false);
+            shouldStopPollingRef.current = true;
+            return;
+          } else if (status.status === 'failed') {
+            alert('步骤1处理失败: ' + (status.error || '未知错误'));
+            setAvatarStep1Generating(false);
+            shouldStopPollingRef.current = true;
+            return;
+          } else if (status.status === 'running' || status.status === 'queued') {
+            setTimeout(poll, 2000);
+          }
+        } else {
+          if (pollAttempts < maxPollAttempts) {
+            setTimeout(poll, 2000);
+          } else {
+            setAvatarStep1Generating(false);
+          }
+        }
+      } catch (error) {
+        console.error('步骤1轮询错误:', error);
+        if (pollAttempts < maxPollAttempts) {
+          setTimeout(poll, 2000);
+        } else {
+          setAvatarStep1Generating(false);
+        }
+      }
+    };
+
+    setTimeout(poll, 1000);
+  };
+
+  // 步骤2轮询函数
+  const pollAvatarStep2Status = async (jobId: string) => {
+    let pollAttempts = 0;
+    const maxPollAttempts = 150;
+
+    const poll = async () => {
+      if (shouldStopPollingRef.current || pollAttempts >= maxPollAttempts) {
+        setAvatarStep2Generating(false);
+        return;
+      }
+
+      pollAttempts++;
+
+      try {
+        const response = await fetch(`/api/jobs/${jobId}`);
+        if (response.status === 404) {
+          if (pollAttempts > 10) {
+            setAvatarStep2Generating(false);
+            return;
+          }
+          setTimeout(poll, 2000);
+          return;
+        }
+
+        const apiResponse = await response.json();
+        if (apiResponse.ok && apiResponse.job) {
+          const status: JobStatus = apiResponse.job;
+
+          if (status.status === 'succeeded' && status.result?.avatarUrl) {
+            console.log('步骤2完成:', status.result.avatarUrl);
+            setAvatarResult(status.result.avatarUrl);
+            setAvatarStep2Generating(false);
+            shouldStopPollingRef.current = true;
+            return;
+          } else if (status.status === 'failed') {
+            alert('步骤2处理失败: ' + (status.error || '未知错误'));
+            setAvatarStep2Generating(false);
+            shouldStopPollingRef.current = true;
+            return;
+          } else if (status.status === 'running' || status.status === 'queued') {
+            setTimeout(poll, 2000);
+          }
+        } else {
+          if (pollAttempts < maxPollAttempts) {
+            setTimeout(poll, 2000);
+          } else {
+            setAvatarStep2Generating(false);
+          }
+        }
+      } catch (error) {
+        console.error('步骤2轮询错误:', error);
+        if (pollAttempts < maxPollAttempts) {
+          setTimeout(poll, 2000);
+        } else {
+          setAvatarStep2Generating(false);
+        }
+      }
+    };
+
+    setTimeout(poll, 1000);
   };
 
   const pollJobStatus = async (jobId: string, generateType?: 'avatar' | 'storefront' | 'poster') => {
@@ -824,24 +1068,61 @@ export default function LogoStudioPage() {
                 <p className="text-sm text-gray-600">点击对应按钮生成单个类型的设计图片</p>
               </div>
 
-              {/* 头像生成按钮 - 需要店铺信息 */}
-              <Button
-                onClick={() => handleGenerateType('avatar')}
-                disabled={avatarGenerating || !storeName.trim() || !templateStoreName.trim() || !dishImage || !avatarTemplate}
-                className="w-full h-12 text-lg bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                {avatarGenerating ? (
-                  <>
-                    <Wand2 className="w-5 h-5 mr-2 animate-spin" />
-                    AI生成头像中...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5 mr-2" />
-                    👤 生成头像设计 (800×800)
-                  </>
+              {/* 头像生成按钮 - 拆分为两个步骤 */}
+              <div className="space-y-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="text-sm font-medium text-purple-800 mb-2">
+                  👤 头像设计生成 (两步骤)
+                </div>
+
+                {/* 步骤1按钮：食物替换 */}
+                <Button
+                  onClick={handleAvatarStep1}
+                  disabled={avatarStep1Generating || !dishImage || !avatarTemplate}
+                  className="w-full h-12 text-base bg-purple-500 hover:bg-purple-600 text-white"
+                >
+                  {avatarStep1Generating ? (
+                    <>
+                      <Wand2 className="w-4 h-4 mr-2 animate-spin" />
+                      步骤1进行中：AI食物替换...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      步骤1：食物替换 (Gemini)
+                    </>
+                  )}
+                </Button>
+
+                {/* 步骤1完成提示 */}
+                {avatarStep1Result && (
+                  <div className="flex items-center justify-center text-xs text-green-600 bg-green-50 py-2 px-3 rounded">
+                    ✓ 步骤1已完成，可以进行步骤2
+                  </div>
                 )}
-              </Button>
+
+                {/* 步骤2按钮：店名替换 */}
+                <Button
+                  onClick={handleAvatarStep2}
+                  disabled={avatarStep2Generating || !avatarStep1Result || !storeName.trim() || !templateStoreName.trim()}
+                  className="w-full h-12 text-base bg-purple-700 hover:bg-purple-800 text-white"
+                >
+                  {avatarStep2Generating ? (
+                    <>
+                      <Wand2 className="w-4 h-4 mr-2 animate-spin" />
+                      步骤2进行中：AI店名替换...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      步骤2：店名替换 (Doubao)
+                    </>
+                  )}
+                </Button>
+
+                <p className="text-xs text-purple-600 text-center">
+                  💡 先点击"步骤1"进行食物替换，完成后再点击"步骤2"替换店铺名
+                </p>
+              </div>
 
               {/* 店招生成按钮 - 不需要店铺信息 */}
               <Button
@@ -884,7 +1165,7 @@ export default function LogoStudioPage() {
           </div>
 
           {/* 结果展示区域 - 全宽显示 */}
-          {(avatarResult || storefrontResult || posterResult) && (
+          {(avatarStep1Result || avatarResult || storefrontResult || posterResult) && (
             <div className="space-y-4">
             {jobStatus && (
               <Card>
@@ -1141,97 +1422,165 @@ export default function LogoStudioPage() {
                       </div>
                     )}
 
-                    {/* 头像设计 */}
-                    {avatarResult && (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {/* 左侧：图片展示 */}
-                        <Card className="border-l-4 border-l-purple-500 min-w-[400px]">
-                          <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <div>
-                              <CardTitle className="flex items-center text-base">
-                                👤 头像设计
-                                <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
-                                  800×800
-                                </span>
-                              </CardTitle>
-                              <p className="text-xs text-gray-600 mt-1">适合社交媒体和品牌标识</p>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => downloadImage(avatarResult, `${storeName}-头像设计.png`)}
-                            >
-                              下载
-                            </Button>
-                          </CardHeader>
-                          <CardContent>
-                            <img
-                              src={avatarResult}
-                              alt="头像设计"
-                              className="w-full h-auto rounded-lg border"
-                              style={{ maxWidth: '400px', margin: '0 auto', display: 'block' }}
-                            />
-                          </CardContent>
-                        </Card>
+                    {/* 头像设计 - 显示步骤1和步骤2的结果 */}
+                    {(avatarStep1Result || avatarResult) && (
+                      <div className="space-y-4">
+                        {/* 步骤1结果 */}
+                        {avatarStep1Result && (
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {/* 左侧：图片展示 */}
+                            <Card className="border-l-4 border-l-purple-400 min-w-[400px]">
+                              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                <div>
+                                  <CardTitle className="flex items-center text-base">
+                                    👤 头像设计 - 步骤1结果
+                                    <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+                                      食物替换完成
+                                    </span>
+                                  </CardTitle>
+                                  <p className="text-xs text-gray-600 mt-1">Gemini API 食物融合结果</p>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => downloadImage(avatarStep1Result, `${storeName || '头像'}-步骤1-食物替换.png`)}
+                                >
+                                  下载
+                                </Button>
+                              </CardHeader>
+                              <CardContent>
+                                <img
+                                  src={avatarStep1Result}
+                                  alt="步骤1：食物替换结果"
+                                  className="w-full h-auto rounded-lg border"
+                                  style={{ maxWidth: '400px', margin: '0 auto', display: 'block' }}
+                                />
+                              </CardContent>
+                            </Card>
 
-                        {/* 右侧：价值说明 */}
-                        <Card className="bg-gradient-to-br from-purple-50 to-pink-50">
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center text-purple-800">
-                              ⭐ 头像设计核心价值
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-3">
-                            <div className="flex items-start">
-                              <span className="text-purple-600 mr-2 mt-0.5">✓</span>
-                              <div className="text-sm">
-                                <span className="font-medium">入店率提升：</span>
-                                专业头像让店铺更醒目，提高25-35%点击进店率
-                              </div>
-                            </div>
-                            <div className="flex items-start">
-                              <span className="text-purple-600 mr-2 mt-0.5">✓</span>
-                              <div className="text-sm">
-                                <span className="font-medium">品牌识别度：</span>
-                                独特头像形成品牌标识，增加70%品牌记忆度
-                              </div>
-                            </div>
-                            <div className="flex items-start">
-                              <span className="text-purple-600 mr-2 mt-0.5">✓</span>
-                              <div className="text-sm">
-                                <span className="font-medium">新客获取：</span>
-                                吸引新客尝试，首单转化率提升20%以上
-                              </div>
-                            </div>
-                            <div className="flex items-start">
-                              <span className="text-purple-600 mr-2 mt-0.5">✓</span>
-                              <div className="text-sm">
-                                <span className="font-medium">搜索排名：</span>
-                                优质头像有助于提升平台搜索权重，增加曝光
-                              </div>
-                            </div>
-                            <div className="flex items-start">
-                              <span className="text-purple-600 mr-2 mt-0.5">✓</span>
-                              <div className="text-sm">
-                                <span className="font-medium">用户信任：</span>
-                                专业设计传递品质保证，减少用户决策犹豫
-                              </div>
-                            </div>
-                            <div className="flex items-start">
-                              <span className="text-purple-600 mr-2 mt-0.5">✓</span>
-                              <div className="text-sm">
-                                <span className="font-medium">长期效应：</span>
-                                持续积累品牌资产，形成竞争壁垒
-                              </div>
-                            </div>
-                            <div className="bg-purple-100 bg-opacity-60 p-3 rounded-lg mt-3">
-                              <p className="text-xs text-purple-800 font-medium leading-relaxed">
-                                💡 <span className="font-bold">专业建议：</span>
-                                头像是店铺的门面和名片，是顾客第一印象的关键。在列表页竞争中，90%的用户会先看头像再决定是否点击，优质头像设计是TOP商家的标配。
-                              </p>
-                            </div>
-                          </CardContent>
-                        </Card>
+                            {/* 右侧：说明 */}
+                            <Card className="bg-gradient-to-br from-purple-50 to-indigo-50">
+                              <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center text-purple-800">
+                                  📋 步骤1完成
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="space-y-3">
+                                <div className="flex items-start">
+                                  <span className="text-purple-600 mr-2 mt-0.5">✓</span>
+                                  <div className="text-sm">
+                                    已使用Gemini API将您的菜品图融合到模板中
+                                  </div>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="text-purple-600 mr-2 mt-0.5">→</span>
+                                  <div className="text-sm">
+                                    下一步：点击"步骤2"按钮替换店铺名称
+                                  </div>
+                                </div>
+                                <div className="bg-purple-100 bg-opacity-60 p-3 rounded-lg mt-3">
+                                  <p className="text-xs text-purple-800 font-medium leading-relaxed">
+                                    💡 步骤1保留了模板原有的店铺名和所有文字，仅替换了食物部分
+                                  </p>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        )}
+
+                        {/* 步骤2结果（最终结果） */}
+                        {avatarResult && (
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {/* 左侧：图片展示 */}
+                            <Card className="border-l-4 border-l-purple-600 min-w-[400px]">
+                              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                <div>
+                                  <CardTitle className="flex items-center text-base">
+                                    👤 头像设计 - 最终成品
+                                    <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+                                      800×800
+                                    </span>
+                                  </CardTitle>
+                                  <p className="text-xs text-gray-600 mt-1">Doubao API 店名替换完成</p>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => downloadImage(avatarResult, `${storeName}-头像设计.png`)}
+                                >
+                                  下载
+                                </Button>
+                              </CardHeader>
+                              <CardContent>
+                                <img
+                                  src={avatarResult}
+                                  alt="头像设计最终成品"
+                                  className="w-full h-auto rounded-lg border"
+                                  style={{ maxWidth: '400px', margin: '0 auto', display: 'block' }}
+                                />
+                              </CardContent>
+                            </Card>
+
+                            {/* 右侧：价值说明 */}
+                            <Card className="bg-gradient-to-br from-purple-50 to-pink-50">
+                              <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center text-purple-800">
+                                  ⭐ 头像设计核心价值
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="space-y-3">
+                                <div className="flex items-start">
+                                  <span className="text-purple-600 mr-2 mt-0.5">✓</span>
+                                  <div className="text-sm">
+                                    <span className="font-medium">入店率提升：</span>
+                                    专业头像让店铺更醒目，提高25-35%点击进店率
+                                  </div>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="text-purple-600 mr-2 mt-0.5">✓</span>
+                                  <div className="text-sm">
+                                    <span className="font-medium">品牌识别度：</span>
+                                    独特头像形成品牌标识，增加70%品牌记忆度
+                                  </div>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="text-purple-600 mr-2 mt-0.5">✓</span>
+                                  <div className="text-sm">
+                                    <span className="font-medium">新客获取：</span>
+                                    吸引新客尝试，首单转化率提升20%以上
+                                  </div>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="text-purple-600 mr-2 mt-0.5">✓</span>
+                                  <div className="text-sm">
+                                    <span className="font-medium">搜索排名：</span>
+                                    优质头像有助于提升平台搜索权重，增加曝光
+                                  </div>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="text-purple-600 mr-2 mt-0.5">✓</span>
+                                  <div className="text-sm">
+                                    <span className="font-medium">用户信任：</span>
+                                    专业设计传递品质保证，减少用户决策犹豫
+                                  </div>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="text-purple-600 mr-2 mt-0.5">✓</span>
+                                  <div className="text-sm">
+                                    <span className="font-medium">长期效应：</span>
+                                    持续积累品牌资产，形成竞争壁垒
+                                  </div>
+                                </div>
+                                <div className="bg-purple-100 bg-opacity-60 p-3 rounded-lg mt-3">
+                                  <p className="text-xs text-purple-800 font-medium leading-relaxed">
+                                    💡 <span className="font-bold">专业建议：</span>
+                                    头像是店铺的门面和名片，是顾客第一印象的关键。在列表页竞争中，90%的用户会先看头像再决定是否点击，优质头像设计是TOP商家的标配。
+                                  </p>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

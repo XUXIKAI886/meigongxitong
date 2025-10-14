@@ -328,7 +328,9 @@ class LogoStudioFusionProcessor {
       template,
       storefrontTemplate,
       posterTemplate,
-      avatarTemplate
+      avatarTemplate,
+      avatarStage, // 头像两步骤模式标记
+      step1ResultUrl // 步骤2使用的步骤1结果URL
     } = job.payload;
 
     console.log('Logo Studio Fusion processing:', {
@@ -339,7 +341,9 @@ class LogoStudioFusionProcessor {
       generateType,
       isSingleType: !!generateType,
       hasTemplate: !!template,
-      hasAllTemplates: !!(storefrontTemplate && posterTemplate && avatarTemplate)
+      hasAllTemplates: !!(storefrontTemplate && posterTemplate && avatarTemplate),
+      avatarStage,
+      hasStep1Result: !!step1ResultUrl
     });
 
     // 转换菜品图为完整data URL
@@ -348,13 +352,16 @@ class LogoStudioFusionProcessor {
     // 根据生成类型处理
     if (generateType && ['avatar', 'storefront', 'poster'].includes(generateType)) {
       // 单个类型生成模式
-      console.log(`生成单个类型: ${generateType}`);
+      console.log(`生成单个类型: ${generateType}, 步骤: ${avatarStage || '完整'}`);
+
       const result = await this.generateFusionImage(
         dishImageDataUrl,
         template,
         storeName,
         templateStoreName,
-        generateType as 'storefront' | 'poster' | 'avatar'
+        generateType as 'storefront' | 'poster' | 'avatar',
+        avatarStage, // 传递步骤标记
+        step1ResultUrl // 传递步骤1结果URL
       );
 
       const response: any = { fusionPrompts: {} };
@@ -418,9 +425,11 @@ class LogoStudioFusionProcessor {
     template: { buffer: string; type: string; id: string },
     storeName: string,
     templateStoreName: string,
-    type: 'storefront' | 'poster' | 'avatar'
+    type: 'storefront' | 'poster' | 'avatar',
+    avatarStage?: string, // 头像两步骤模式标记
+    step1ResultUrl?: string // 步骤2使用的步骤1结果URL
   ) {
-    console.log(`Starting ${type} template fusion generation`);
+    console.log(`Starting ${type} template fusion generation, stage: ${avatarStage || 'full'}`);
 
     // 转换模板图为base64 data URL
     const templateImageDataUrl = this.bufferToBase64(Buffer.from(template.buffer, 'base64'), template.type);
@@ -446,69 +455,133 @@ class LogoStudioFusionProcessor {
 
     // 头像使用两阶段处理：阶段1(Gemini食物替换) + 阶段2(Doubao店名替换)
     if (type === 'avatar') {
-      console.log('===== 头像两阶段处理开始 =====');
+      // 判断是哪个阶段
+      if (avatarStage === 'step1') {
+        // ===== 仅执行步骤1: 使用Gemini API替换食物 =====
+        console.log('===== 头像步骤1: 食物替换 =====');
+        const foodReplacementPrompt = this.createFoodReplacementPrompt();
+        console.log('步骤1提示词:', foodReplacementPrompt.substring(0, 100) + '...');
 
-      // ===== 阶段1: 使用Gemini API替换食物 =====
-      console.log('阶段1: 使用Gemini API替换食物');
-      const foodReplacementPrompt = this.createFoodReplacementPrompt();
-      console.log('阶段1提示词:', foodReplacementPrompt.substring(0, 100) + '...');
-
-      let stage1Response;
-      let lastError;
-      for (let retry = 0; retry < 3; retry++) {
-        try {
-          console.log(`阶段1 - Attempt ${retry + 1}/3`);
-          stage1Response = await this.geminiClient.replaceFoodInBowl({
-            sourceImage: dishImageDataUrl,      // 图片2: 主推菜品图
-            targetImage: templateImageDataUrl,  // 图片1: 模板图
-            prompt: foodReplacementPrompt
-          });
-          console.log(`阶段1 - Successfully processed on attempt ${retry + 1}`);
-          break;
-        } catch (error: any) {
-          lastError = error;
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          console.log(`阶段1 - Attempt ${retry + 1} failed:`, errorMessage);
-          if (retry < 2) {
-            console.log(`阶段1 - Waiting 2 seconds before retry ${retry + 2}`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
+        let stage1Response;
+        let lastError;
+        for (let retry = 0; retry < 3; retry++) {
+          try {
+            console.log(`步骤1 - Attempt ${retry + 1}/3`);
+            stage1Response = await this.geminiClient.replaceFoodInBowl({
+              sourceImage: dishImageDataUrl,      // 图片2: 主推菜品图
+              targetImage: templateImageDataUrl,  // 图片1: 模板图
+              prompt: foodReplacementPrompt
+            });
+            console.log(`步骤1 - Successfully processed on attempt ${retry + 1}`);
+            break;
+          } catch (error: any) {
+            lastError = error;
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log(`步骤1 - Attempt ${retry + 1} failed:`, errorMessage);
+            if (retry < 2) {
+              console.log(`步骤1 - Waiting 2 seconds before retry ${retry + 2}`);
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
           }
         }
-      }
 
-      if (!stage1Response) {
-        const errorMessage = lastError instanceof Error ? lastError.message : 'Unknown error';
-        console.log(`阶段1 - All 3 attempts failed, final error:`, errorMessage);
-        throw lastError;
-      }
+        if (!stage1Response) {
+          const errorMessage = lastError instanceof Error ? lastError.message : 'Unknown error';
+          console.log(`步骤1 - All 3 attempts failed, final error:`, errorMessage);
+          throw lastError;
+        }
 
-      // 获取阶段1生成的图片(data URL格式)
-      if (stage1Response.data && stage1Response.data.length > 0) {
-        stage1ImageDataUrl = stage1Response.data[0].url;
-        console.log('阶段1完成,图片格式:', stage1ImageDataUrl.substring(0, 30) + '...');
-      } else {
-        throw new Error('阶段1: No image generated from Gemini');
-      }
+        response = stage1Response;
+        console.log('===== 头像步骤1完成 =====');
 
-      // ===== 阶段2: 使用Doubao API替换店名 =====
-      console.log('阶段2: 使用Doubao API替换店名');
-      const storeNamePrompt = this.createStoreNameReplacementPrompt(storeName, templateStoreName);
-      console.log('阶段2提示词:', storeNamePrompt.substring(0, 100) + '...');
+      } else if (avatarStage === 'step2') {
+        // ===== 仅执行步骤2: 使用Doubao API替换店名 =====
+        console.log('===== 头像步骤2: 店名替换 =====');
+        console.log('使用步骤1结果URL:', step1ResultUrl?.substring(0, 50) + '...');
 
-      const sizeMap = {
-        avatar: config.images.sizes.logo  // 800x800
-      };
+        const storeNamePrompt = this.createStoreNameReplacementPrompt(storeName, templateStoreName);
+        console.log('步骤2提示词:', storeNamePrompt.substring(0, 100) + '...');
 
-      response = await withRetry(async () => {
-        return await this.imageClient.generateImageWithMultipleImages({
-          images: [stage1ImageDataUrl!], // 使用阶段1生成的图片
-          prompt: storeNamePrompt,
-          size: sizeMap.avatar
+        const sizeMap = {
+          avatar: config.images.sizes.logo  // 800x800
+        };
+
+        response = await withRetry(async () => {
+          return await this.imageClient.generateImageWithMultipleImages({
+            images: [step1ResultUrl!], // 使用步骤1的结果
+            prompt: storeNamePrompt,
+            size: sizeMap.avatar
+          });
         });
-      });
 
-      console.log('阶段2完成');
-      console.log('===== 头像两阶段处理结束 =====');
+        console.log('===== 头像步骤2完成 =====');
+
+      } else {
+        // ===== 完整两阶段处理（原有逻辑） =====
+        console.log('===== 头像两阶段处理开始 =====');
+
+        // 阶段1: 使用Gemini API替换食物
+        console.log('阶段1: 使用Gemini API替换食物');
+        const foodReplacementPrompt = this.createFoodReplacementPrompt();
+        console.log('阶段1提示词:', foodReplacementPrompt.substring(0, 100) + '...');
+
+        let stage1Response;
+        let lastError;
+        for (let retry = 0; retry < 3; retry++) {
+          try {
+            console.log(`阶段1 - Attempt ${retry + 1}/3`);
+            stage1Response = await this.geminiClient.replaceFoodInBowl({
+              sourceImage: dishImageDataUrl,      // 图片2: 主推菜品图
+              targetImage: templateImageDataUrl,  // 图片1: 模板图
+              prompt: foodReplacementPrompt
+            });
+            console.log(`阶段1 - Successfully processed on attempt ${retry + 1}`);
+            break;
+          } catch (error: any) {
+            lastError = error;
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log(`阶段1 - Attempt ${retry + 1} failed:`, errorMessage);
+            if (retry < 2) {
+              console.log(`阶段1 - Waiting 2 seconds before retry ${retry + 2}`);
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+          }
+        }
+
+        if (!stage1Response) {
+          const errorMessage = lastError instanceof Error ? lastError.message : 'Unknown error';
+          console.log(`阶段1 - All 3 attempts failed, final error:`, errorMessage);
+          throw lastError;
+        }
+
+        // 获取阶段1生成的图片(data URL格式)
+        if (stage1Response.data && stage1Response.data.length > 0) {
+          stage1ImageDataUrl = stage1Response.data[0].url;
+          console.log('阶段1完成,图片格式:', stage1ImageDataUrl.substring(0, 30) + '...');
+        } else {
+          throw new Error('阶段1: No image generated from Gemini');
+        }
+
+        // 阶段2: 使用Doubao API替换店名
+        console.log('阶段2: 使用Doubao API替换店名');
+        const storeNamePrompt = this.createStoreNameReplacementPrompt(storeName, templateStoreName);
+        console.log('阶段2提示词:', storeNamePrompt.substring(0, 100) + '...');
+
+        const sizeMap = {
+          avatar: config.images.sizes.logo  // 800x800
+        };
+
+        response = await withRetry(async () => {
+          return await this.imageClient.generateImageWithMultipleImages({
+            images: [stage1ImageDataUrl!], // 使用阶段1生成的图片
+            prompt: storeNamePrompt,
+            size: sizeMap.avatar
+          });
+        });
+
+        console.log('阶段2完成');
+        console.log('===== 头像两阶段处理结束 =====');
+      }
 
     } else if (type === 'storefront' || type === 'poster') {
       // 店招和海报：仅使用Gemini API进行食物替换
@@ -582,7 +655,11 @@ class LogoStudioFusionProcessor {
 
 食物提取要求:
 - 只提取图片2中的纯食物部分:米饭、菜、肉、汤汁、配菜、调料等
-- 严格排除图片2中的所有容器:碗、盘子、碟子、勺子、筷子等餐具
+- 严格排除图片2中的所有非食物元素:
+  * 容器:碗、盘子、碟子、勺子、筷子等餐具
+  * **文字:价格、店名、菜名、促销语、标签等所有文字信息(非常重要!)**
+  * 背景:桌面、桌布、装饰品等
+  * 人物:手、身体等人体部位
 - 提取的食物要完整,包含所有食材细节
 
 菜品美化要求:
@@ -597,10 +674,10 @@ class LogoStudioFusionProcessor {
 - 食物与容器的融合要真实自然,就像食物本来就盛放在这个容器里
 
 关键要求:
-- 图片2: 只提取食物,不提取容器
-- 图片1: 只替换食物,保留容器
+- 图片2: 只提取纯食物,严格排除容器、文字、背景、人物等所有非食物元素
+- 图片1: 只替换食物,保留容器、文字、背景、装饰等所有其他元素
 - 食物必须100%来自图片2,包含所有食材细节(颜色、形态、配菜、青菜、肉丝、汤汁)
-- 不要修改图片1的文字、背景、装饰、容器`;
+- 绝对不要把图片2中的文字、容器、背景等非食物元素带入图片1`;
   }
 
   // 阶段2：创建店名替换提示词(Doubao API专用)
@@ -633,7 +710,11 @@ class LogoStudioFusionProcessor {
 
 食物提取要求：
 - 只提取图片2中的纯食物部分:米饭、菜、肉、汤汁、配菜、调料等
-- 严格排除图片2中的所有容器:碗、盘子、碟子、勺子、筷子等餐具
+- 严格排除图片2中的所有非食物元素:
+  * 容器:碗、盘子、碟子、勺子、筷子等餐具
+  * **文字:价格、店名、菜名、促销语、标签等所有文字信息**
+  * 背景:桌面、桌布、装饰品等
+  * 人物:手、身体等人体部位
 - 提取的食物要完整,包含所有食材细节
 
 容器保留要求：
@@ -642,10 +723,10 @@ class LogoStudioFusionProcessor {
 - 食物与容器的融合要真实自然,就像食物本来就盛放在这个容器里
 
 关键要求：
-- 图片2: 只提取食物,不提取容器
-- 图片1: 只替换食物,保留容器
+- 图片2: 只提取纯食物,严格排除容器、文字、背景、人物等所有非食物元素
+- 图片1: 只替换食物,保留容器、文字、背景、装饰等所有其他元素
 - 必须使用图片2的实际食物,包含所有食材细节(颜色、形态、配菜、青菜、肉丝、汤汁)
-- 不要修改图片1的文字、背景、装饰、容器`;
+- 绝对不要把图片2中的文字、容器、背景等非食物元素带入图片1`;
     }
 
     // 头像：返回阶段1的食物替换提示词(后续会进行两阶段处理)
@@ -701,6 +782,8 @@ export async function POST(request: NextRequest) {
     // 主推菜品图
     const dishImageFile = formData.get('dishImage') as File;
     const generateType = formData.get('generateType') as string; // 新增：指定生成类型
+    const avatarStage = formData.get('avatarStage') as string; // 新增：头像两步骤模式标记
+    const step1ResultUrl = formData.get('step1ResultUrl') as string; // 步骤2使用的步骤1结果URL
 
     // 根据生成类型获取对应的模板文件
     let templateFile: File | null = null;
@@ -774,13 +857,15 @@ export async function POST(request: NextRequest) {
     }
 
     // 转换文件为base64格式
-    const dishImageBuffer = Buffer.from(await dishImageFile.arrayBuffer());
+    const dishImageBuffer = dishImageFile ? Buffer.from(await dishImageFile.arrayBuffer()) : null;
 
     let jobPayload: any = {
       storeName: storeName.trim(),
       templateStoreName: templateStoreName.trim(),
-      dishImageBuffer: dishImageBuffer.toString('base64'),
-      dishImageType: dishImageFile.type,
+      dishImageBuffer: dishImageBuffer?.toString('base64'),
+      dishImageType: dishImageFile?.type,
+      avatarStage: avatarStage, // 头像两步骤模式标记
+      step1ResultUrl: step1ResultUrl, // 步骤2使用的步骤1结果URL
     };
 
     if (generateType && ['avatar', 'storefront', 'poster'].includes(generateType)) {
