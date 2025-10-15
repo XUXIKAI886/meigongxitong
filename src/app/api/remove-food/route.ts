@@ -3,7 +3,6 @@ import { ProductRefineApiClient } from '@/lib/api/clients/ProductRefineApiClient
 import { FileManager } from '@/lib/upload';
 import { withRetry, rateLimiter, handleApiError } from '@/lib/api-client';
 import { config } from '@/lib/config';
-import sharp from 'sharp';
 
 // 强制使用 Node.js Runtime
 export const runtime = 'nodejs';
@@ -13,19 +12,14 @@ export const maxDuration = 300; // 5分钟超时
 class RemoveFoodProcessor {
   private geminiClient = new ProductRefineApiClient();
 
-  async process(imageBuffer: Buffer, imageMimeType: string): Promise<{
+  async process(imageBuffer: Buffer, imageMimeType: string, originalWidth: number, originalHeight: number): Promise<{
     imageUrl: string;
     width: number;
     height: number;
   }> {
-    // 获取原图尺寸
-    const metadata = await sharp(imageBuffer).metadata();
-    const originalWidth = metadata.width || 1024;
-    const originalHeight = metadata.height || 1024;
-
     console.log('Remove Food Processing:', {
-      originalSize: `${originalWidth}×${originalHeight}`,
-      mimeType: imageMimeType
+      mimeType: imageMimeType,
+      originalSize: `${originalWidth}×${originalHeight}`
     });
 
     // 转换为base64 data URL
@@ -82,23 +76,15 @@ class RemoveFoodProcessor {
       resultImageBuffer = await this.downloadImage(imageData.url);
     }
 
-    // 调整图片尺寸到原图大小
-    const resizedBuffer = await sharp(resultImageBuffer)
-      .resize(originalWidth, originalHeight, {
-        fit: 'fill', // 填充模式,确保完全匹配原图尺寸
-        kernel: sharp.kernel.lanczos3 // 使用高质量缩放算法
-      })
-      .png({ quality: 100 }) // 最高质量输出
-      .toBuffer();
-
-    // 保存处理后的图片
+    // 保存处理后的图片（不进行尺寸调整，保持AI生成的原始尺寸）
     const savedFile = await FileManager.saveBuffer(
-      resizedBuffer,
+      resultImageBuffer,
       `remove-food-${Date.now()}.png`,
       'image/png',
       true
     );
 
+    // 返回上传图片的原始尺寸
     return {
       imageUrl: savedFile.url,
       width: originalWidth,
@@ -178,10 +164,19 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const imageFile = formData.get('image') as File;
+    const width = formData.get('width');
+    const height = formData.get('height');
 
     if (!imageFile) {
       return NextResponse.json(
         { error: '请上传图片' },
+        { status: 400 }
+      );
+    }
+
+    if (!width || !height) {
+      return NextResponse.json(
+        { error: '缺少图片尺寸信息' },
         { status: 400 }
       );
     }
@@ -205,10 +200,12 @@ export async function POST(request: NextRequest) {
 
     // 转换文件为Buffer
     const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
+    const imageWidth = parseInt(width as string, 10);
+    const imageHeight = parseInt(height as string, 10);
 
     // 处理图片
     const processor = new RemoveFoodProcessor();
-    const result = await processor.process(imageBuffer, imageFile.type);
+    const result = await processor.process(imageBuffer, imageFile.type, imageWidth, imageHeight);
 
     return NextResponse.json({
       ok: true,

@@ -83,8 +83,20 @@ export default function RemoveFoodPage() {
       const file = uploadedFiles[i];
 
       try {
+        // 获取图片尺寸
+        const img = new Image();
+        const imageUrl = URL.createObjectURL(file);
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = imageUrl;
+        });
+        URL.revokeObjectURL(imageUrl);
+
         const formData = new FormData();
         formData.append('image', file);
+        formData.append('width', img.width.toString());
+        formData.append('height', img.height.toString());
 
         const response = await fetch('/api/remove-food', {
           method: 'POST',
