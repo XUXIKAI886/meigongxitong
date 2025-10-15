@@ -15,8 +15,7 @@ import {
   RefreshCwIcon,
   BlendIcon,
   LayersIcon,
-  HardDriveIcon,
-  Trash2Icon
+  HardDriveIcon
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -118,16 +117,6 @@ export default function HomePage() {
       color: 'bg-gradient-to-br from-purple-500 to-pink-600',
       outputSize: '1200×900px',
       features: ['多图融合', '套餐展示', '风格统一', '商业品质', '智能排列']
-    },
-    {
-      id: 'remove-food',
-      title: '图片去食物工具（保留空器皿）',
-      description: '智能移除图片中的食物，完美保留空器皿、背景和所有文字内容（店名、价格、标签等）',
-      icon: Trash2Icon,
-      href: '/remove-food',
-      color: 'bg-gradient-to-br from-cyan-500 to-blue-600',
-      outputSize: '保持原图尺寸',
-      features: ['食物移除', '器皿保留', '背景保持', '文字保留', '批量处理']
     }
   ];
 
