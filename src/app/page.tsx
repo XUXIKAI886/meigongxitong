@@ -206,14 +206,6 @@ export default function HomePage() {
       {/* Features Grid */}
       <section className="py-20 relative">
         <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center mb-16">
-            <h3 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              7大核心功能模块
-            </h3>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              专业AI技术驱动，为您的外卖业务提供全方位的视觉设计解决方案
-            </p>
-          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => {
               const IconComponent = feature.icon;
