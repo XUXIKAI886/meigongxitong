@@ -143,6 +143,19 @@ class RemoveFoodProcessor {
   }
 }
 
+// GET方法处理 - 返回API信息
+export async function GET() {
+  return NextResponse.json({
+    name: 'Remove Food API',
+    version: '1.0.0',
+    description: '智能移除图片中的食物，保留空器皿、背景和文字',
+    method: 'POST',
+    requiredFields: ['image'],
+    supportedFormats: ['image/jpeg', 'image/png', 'image/webp'],
+    maxFileSize: '10MB'
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const clientIp = request.headers.get('x-forwarded-for') ||

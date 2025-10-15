@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '10mb',
     },
   },
+  // 配置sharp的外部依赖处理
+  serverExternalPackages: ['sharp'],
 };
 
 export default nextConfig;
