@@ -42,14 +42,16 @@ export async function downloadImage(
     try {
       console.log('🖼️ [Tauri] 开始保存图片:', filename);
 
-      // 1. 调用 Tauri 保存文件对话框 - 参数直接传递,不嵌套在options中
+      // 1. 调用 Tauri 保存文件对话框 - Dialog API 必须使用 options 对象包裹
       const filePath = await (window as any).__TAURI__.core.invoke('plugin:dialog|save', {
-        defaultPath: filename,
-        title: '保存图片',
-        filters: [{
-          name: '图片文件',
-          extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg']
-        }]
+        options: {  // ← 关键: Dialog API 必须有 options 包裹
+          defaultPath: filename,
+          title: '保存图片',
+          filters: [{
+            name: '图片文件',
+            extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg']
+          }]
+        }
       });
 
       if (!filePath) {
@@ -89,9 +91,9 @@ export async function downloadImage(
 
       console.log('💾 准备写入文件, 大小:', bytes.length, 'bytes');
 
-      // 4. 写入文件 - 参数直接传递,不嵌套在options中
+      // 4. 写入文件 - FS API 不需要 options，直接传递参数
       await (window as any).__TAURI__.core.invoke('plugin:fs|write_file', {
-        path: filePath,
+        path: filePath,  // ← FS API 直接传递，不需要 options
         contents: Array.from(bytes)
       });
 
