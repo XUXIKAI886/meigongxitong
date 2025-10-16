@@ -42,22 +42,22 @@ export async function downloadImage(
     try {
       console.log('🖼️ [Tauri] 开始保存图片:', filename);
 
-      // 1. 调用 Tauri 保存文件对话框
+      // 1. 调用 Tauri 保存文件对话框 - 参数直接传递,不嵌套在options中
       const filePath = await (window as any).__TAURI__.core.invoke('plugin:dialog|save', {
-        options: {
-          defaultPath: filename,
-          title: '保存图片',
-          filters: [{
-            name: '图片文件',
-            extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg']
-          }]
-        }
+        defaultPath: filename,
+        title: '保存图片',
+        filters: [{
+          name: '图片文件',
+          extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg']
+        }]
       });
 
       if (!filePath) {
-        console.log('❌ 用户取消了保存');
+        console.log('⚠️ 用户取消了保存');
         return false;
       }
+
+      console.log('📁 选择的保存路径:', filePath);
 
       // 2. 将 Base64 转换为二进制数据
       let binaryData: string;
@@ -87,18 +87,21 @@ export async function downloadImage(
         bytes[i] = binaryData.charCodeAt(i);
       }
 
-      // 4. 写入文件
+      console.log('💾 准备写入文件, 大小:', bytes.length, 'bytes');
+
+      // 4. 写入文件 - 参数直接传递,不嵌套在options中
       await (window as any).__TAURI__.core.invoke('plugin:fs|write_file', {
         path: filePath,
         contents: Array.from(bytes)
       });
 
-      console.log('✅ [Tauri] 图片保存成功:', filePath);
+      console.log('✅ [Tauri] 图片保存成功!');
       alert('图片保存成功!\n保存位置: ' + filePath);
       return true;
 
     } catch (error) {
       console.error('❌ [Tauri] 保存失败:', error);
+      console.error('错误详情:', error instanceof Error ? error.message : String(error));
       alert('保存失败: ' + (error instanceof Error ? error.message : '未知错误'));
       return false;
     }
