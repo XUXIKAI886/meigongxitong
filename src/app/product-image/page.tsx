@@ -191,12 +191,16 @@ export default function ProductImagePage() {
     }
   };
 
-  const downloadResult = () => {
+  const downloadResult = async () => {
     if (jobStatus?.result?.imageUrl) {
-      const link = document.createElement('a');
-      link.href = jobStatus.result.imageUrl;
-      link.download = `product-${Date.now()}.png`;
-      link.click();
+      try {
+        // 动态导入下载工具函数 - 兼容 Web 和 Tauri 环境
+        const { downloadRemoteImage } = await import('@/lib/image-download');
+        await downloadRemoteImage(jobStatus.result.imageUrl, `product-${Date.now()}.png`);
+      } catch (error) {
+        console.error('下载失败:', error);
+        alert('下载失败，请重试');
+      }
     }
   };
 

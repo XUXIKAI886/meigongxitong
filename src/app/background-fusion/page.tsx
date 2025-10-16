@@ -383,27 +383,32 @@ export default function BackgroundFusionPage() {
   };
 
   // 下载图片
-  const downloadImage = (url: string, filename: string) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadImage = async (url: string, filename: string) => {
+    try {
+      // 动态导入下载工具函数 - 兼容 Web 和 Tauri 环境
+      const { downloadRemoteImage } = await import('@/lib/image-download');
+      await downloadRemoteImage(url, filename);
+    } catch (error) {
+      console.error('下载失败:', error);
+      alert('下载失败，请重试');
+    }
   };
 
   // 批量下载所有图片
-  const downloadAllImages = () => {
+  const downloadAllImages = async () => {
     const successResults = [...batchResults, ...historicalBatchResults].filter(result => result.status === 'success');
 
-    successResults.forEach((result, index) => {
-      setTimeout(() => {
-        // 使用原始文件名或生成默认名称
-        const filename = result.sourceFileName || `background-fusion-${index + 1}.jpg`;
-        console.log(`批量下载 - 第${index + 1}张图片，使用文件名:`, filename);
-        downloadImage(result.imageUrl, filename);
-      }, index * 500); // 每500ms下载一张，避免浏览器阻止
-    });
+    for (let index = 0; index < successResults.length; index++) {
+      const result = successResults[index];
+      // 使用原始文件名或生成默认名称
+      const filename = result.sourceFileName || `background-fusion-${index + 1}.jpg`;
+      console.log(`批量下载 - 第${index + 1}张图片，使用文件名:`, filename);
+      await downloadImage(result.imageUrl, filename);
+      // 添加小延迟避免浏览器限制并发下载
+      if (index < successResults.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
   };
 
   return (

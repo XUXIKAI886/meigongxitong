@@ -134,20 +134,27 @@ export default function PictureWallPage() {
     poll();
   };
 
-  const downloadImage = (url: string, filename: string) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadImage = async (url: string, filename: string) => {
+    try {
+      // 动态导入下载工具函数 - 兼容 Web 和 Tauri 环境
+      const { downloadRemoteImage } = await import('@/lib/image-download');
+      await downloadRemoteImage(url, filename);
+    } catch (error) {
+      console.error('下载失败:', error);
+      alert('下载失败，请重试');
+    }
   };
 
-  const downloadAll = () => {
+  const downloadAll = async () => {
     if (jobStatus?.result?.images) {
-      jobStatus.result.images.forEach((image, index) => {
-        downloadImage(image.imageUrl, `picture-wall-${index + 1}.png`);
-      });
+      for (let index = 0; index < jobStatus.result.images.length; index++) {
+        const image = jobStatus.result.images[index];
+        await downloadImage(image.imageUrl, `picture-wall-${index + 1}.png`);
+        // 添加小延迟避免浏览器限制并发下载
+        if (index < jobStatus.result.images.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
     }
   };
 

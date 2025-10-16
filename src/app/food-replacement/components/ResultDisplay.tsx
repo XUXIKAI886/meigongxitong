@@ -13,17 +13,9 @@ export default function ResultDisplay({ results, onClearHistory }: ResultDisplay
 
   const downloadImage = async (imageUrl: string, filename: string) => {
     try {
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // 动态导入下载工具函数 - 兼容 Web 和 Tauri 环境
+      const { downloadRemoteImage } = await import('@/lib/image-download');
+      await downloadRemoteImage(imageUrl, filename);
     } catch (error) {
       console.error('下载图片失败:', error);
     }

@@ -777,19 +777,12 @@ export default function LogoStudioPage() {
     setTimeout(poll, 1000); // 1秒后开始轮询
   };
 
-  // 下载图片函数
+  // 下载图片函数 - 兼容 Web 和 Tauri 环境
   const downloadImage = async (url: string, filename: string) => {
     try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
+      // 动态导入下载工具函数
+      const { downloadRemoteImage } = await import('@/lib/image-download');
+      await downloadRemoteImage(url, filename);
     } catch (error) {
       console.error('下载失败:', error);
       alert('下载失败，请重试');

@@ -229,19 +229,21 @@ export default function MultiFusionPage() {
   };
 
   // 下载结果
-  const downloadResult = () => {
+  const downloadResult = async () => {
     if (!result) return;
 
-    // 使用第一张源图片的原始文件名或生成默认名称
-    const filename = fileNamesRef.current[0] || `multi-fusion-${Date.now()}.png`;
-    console.log('多图融合下载 - 使用文件名:', filename);
+    try {
+      // 使用第一张源图片的原始文件名或生成默认名称
+      const filename = fileNamesRef.current[0] || `multi-fusion-${Date.now()}.png`;
+      console.log('多图融合下载 - 使用文件名:', filename);
 
-    const link = document.createElement('a');
-    link.href = result;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      // 动态导入下载工具函数 - 兼容 Web 和 Tauri 环境
+      const { downloadRemoteImage } = await import('@/lib/image-download');
+      await downloadRemoteImage(result, filename);
+    } catch (error) {
+      console.error('下载失败:', error);
+      alert('下载失败，请重试');
+    }
   };
 
   // 清除所有状态
