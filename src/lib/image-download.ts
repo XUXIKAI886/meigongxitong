@@ -4,6 +4,17 @@
  * 根据文档 MEIGONG_DESIGN_DOWNLOAD_FIX.md 实现
  */
 
+// 扩展 Window 接口以支持 Tauri
+declare global {
+  interface Window {
+    __TAURI__?: {
+      core?: {
+        invoke: (cmd: string, args?: any) => Promise<any>;
+      };
+    };
+  }
+}
+
 /**
  * 检测是否在 Tauri 桌面环境中运行
  */
