@@ -44,12 +44,14 @@ export async function downloadImage(
 
       // 1. 调用 Tauri 保存文件对话框
       const filePath = await (window as any).__TAURI__.core.invoke('plugin:dialog|save', {
-        defaultPath: filename,
-        title: '保存图片',
-        filters: [{
-          name: '图片文件',
-          extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg']
-        }]
+        options: {
+          defaultPath: filename,
+          title: '保存图片',
+          filters: [{
+            name: '图片文件',
+            extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg']
+          }]
+        }
       });
 
       if (!filePath) {
@@ -184,8 +186,10 @@ export async function testTauriSaveDialog(): Promise<void> {
 
   try {
     const path = await (window as any).__TAURI__.core.invoke('plugin:dialog|save', {
-      defaultPath: 'test.png',
-      filters: [{ name: '图片', extensions: ['png'] }]
+      options: {
+        defaultPath: 'test.png',
+        filters: [{ name: '图片', extensions: ['png'] }]
+      }
     });
     console.log('选择的路径:', path);
   } catch (err) {
