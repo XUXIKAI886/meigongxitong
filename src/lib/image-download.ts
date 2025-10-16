@@ -91,11 +91,18 @@ export async function downloadImage(
 
       console.log('💾 准备写入文件, 大小:', bytes.length, 'bytes');
 
-      // 4. 写入文件 - FS API 不需要 options，直接传递参数
-      await (window as any).__TAURI__.core.invoke('plugin:fs|write_file', {
-        path: filePath,  // ← FS API 直接传递，不需要 options
-        contents: Array.from(bytes)
-      });
+      // 4. 写入文件 - FS API 使用特殊的 3 参数格式!
+      // 参数1: 命令名, 参数2: Uint8Array 数据, 参数3: 配置对象
+      await (window as any).__TAURI__.core.invoke(
+        'plugin:fs|write_file',  // 第1个参数: 命令名
+        bytes,                    // 第2个参数: Uint8Array 数据
+        {                         // 第3个参数: 配置对象
+          headers: {
+            path: encodeURIComponent(filePath),
+            options: JSON.stringify({})
+          }
+        }
+      );
 
       console.log('✅ [Tauri] 图片保存成功!');
       alert('图片保存成功!\n保存位置: ' + filePath);
