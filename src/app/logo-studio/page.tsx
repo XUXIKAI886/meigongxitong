@@ -403,6 +403,7 @@ export default function LogoStudioPage() {
 
     setAvatarStep1Generating(true);
     setAvatarStep1Result(null);
+    setAvatarResult(null); // 清除之前的步骤2结果
     shouldStopPollingRef.current = false;
 
     try {
@@ -436,6 +437,7 @@ export default function LogoStudioPage() {
       if (responseData.data && responseData.data.avatarUrl) {
         console.log('步骤1完成(同步模式):', responseData.data.avatarUrl);
         setAvatarStep1Result(responseData.data.avatarUrl);
+        setAvatarResult(null); // 清除之前的步骤2结果
         setAvatarStep1Generating(false);
       } else if (responseData.jobId) {
         // 本地异步模式
@@ -545,6 +547,7 @@ export default function LogoStudioPage() {
           if (status.status === 'succeeded' && status.result?.avatarUrl) {
             console.log('步骤1完成:', status.result.avatarUrl);
             setAvatarStep1Result(status.result.avatarUrl);
+            setAvatarResult(null); // 清除之前的步骤2结果
             setAvatarStep1Generating(false);
             shouldStopPollingRef.current = true;
             return;
