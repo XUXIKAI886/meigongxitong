@@ -162,7 +162,18 @@ export class FileManager {
     const filePath = this.getFilePath(filename);
     return await fs.readFile(filePath);
   }
-  
+
+  // 读取 public/generated 目录下的文件缓冲区，用于二次加工
+  static async getGeneratedFileBuffer(filename: string): Promise<Buffer> {
+    const sanitized = filename.replace(/^[\/]+/, '');
+    if (sanitized.includes('..')) {
+      throw new Error('Invalid generated filename');
+    }
+    const targetDir = path.join(process.cwd(), 'public', 'generated');
+    const filePath = path.join(targetDir, sanitized);
+    return await fs.readFile(filePath);
+  }
+
   // 自动清理过期文件（7天前的文件）
   static async cleanup(): Promise<void> {
     // Vercel 环境跳过清理 (只读文件系统)

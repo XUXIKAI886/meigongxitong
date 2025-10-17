@@ -419,6 +419,82 @@ class LogoStudioFusionProcessor {
   private bufferToBase64(buffer: Buffer, mimeType: string): string {
     return `data:${mimeType};base64,${buffer.toString('base64')}`;
   }
+  // 将任意来源的图片统一转换为 data URL，保障 Doubao API 输入格式
+  private async ensureImageDataUrl(imageSource: string): Promise<string> {
+    const trimmed = imageSource?.trim();
+
+    if (!trimmed) {
+      throw new Error('步骤1: 未获取到生成图片地址');
+    }
+
+    if (trimmed.startsWith('data:')) {
+      return trimmed;
+    }
+
+    const base64Candidate = trimmed.replace(/\s/g, '');
+    if (/^[A-Za-z0-9+/]+=*$/.test(base64Candidate) && base64Candidate.length % 4 === 0) {
+      return `data:image/png;base64,${base64Candidate}`;
+    }
+
+    let buffer: Buffer | null = null;
+    let mimeType = 'image/png';
+
+    try {
+      if (trimmed.startsWith('/generated/')) {
+        const filename = trimmed.replace(/^\/generated\//, '');
+        buffer = await FileManager.getGeneratedFileBuffer(filename);
+        mimeType = this.detectMimeType(filename);
+      } else if (trimmed.startsWith('/api/files/')) {
+        const filename = trimmed.replace(/^\/api\/files\//, '');
+        buffer = await FileManager.getFileBuffer(filename);
+        mimeType = this.detectMimeType(filename);
+      } else if (/^https?:\/\//i.test(trimmed)) {
+        const response = await fetch(trimmed);
+        if (!response.ok) {
+          throw new Error(`步骤1: 下载生成图片失败(${response.status})`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
+        const headerType = response.headers.get('content-type');
+        if (headerType) {
+          mimeType = headerType.split(';')[0].trim();
+        } else {
+          mimeType = this.detectMimeType(trimmed);
+        }
+      } else {
+        const filename = trimmed.replace(/^\/+/, '');
+        buffer = await FileManager.getGeneratedFileBuffer(filename);
+        mimeType = this.detectMimeType(filename);
+      }
+    } catch (error) {
+      console.error('步骤1图片转换失败:', error);
+      throw new Error('步骤1: 无法读取生成图片数据，请重新执行步骤一');
+    }
+
+    if (!buffer) {
+      throw new Error('步骤1: 生成图片读取失败');
+    }
+
+    const base64 = buffer.toString('base64');
+    return `data:${mimeType};base64,${base64}`;
+  }
+
+  // 根据文件后缀估算图片类型，默认为 PNG
+  private detectMimeType(filename: string): string {
+    const ext = filename?.split('.').pop()?.toLowerCase();
+
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'webp':
+        return 'image/webp';
+      case 'png':
+      default:
+        return 'image/png';
+    }
+  }
+
 
   private async generateFusionImage(
     dishImageDataUrl: string,
@@ -502,13 +578,19 @@ class LogoStudioFusionProcessor {
         const storeNamePrompt = this.createStoreNameReplacementPrompt(storeName, templateStoreName);
         console.log('步骤2提示词:', storeNamePrompt.substring(0, 100) + '...');
 
+        if (!step1ResultUrl) {
+          throw new Error('步骤2: 未获取到步骤1输出，请先完成食物替换');
+        }
+
+        const preparedStep1Image = await this.ensureImageDataUrl(step1ResultUrl);
+
         const sizeMap = {
           avatar: config.images.sizes.logo  // 800x800
         };
 
         response = await withRetry(async () => {
           return await this.imageClient.generateImageWithMultipleImages({
-            images: [step1ResultUrl!], // 使用步骤1的结果
+            images: [preparedStep1Image], // 使用转换后的步骤1结果
             prompt: storeNamePrompt,
             size: sizeMap.avatar
           });
@@ -556,7 +638,8 @@ class LogoStudioFusionProcessor {
 
         // 获取阶段1生成的图片(data URL格式)
         if (stage1Response.data && stage1Response.data.length > 0) {
-          stage1ImageDataUrl = stage1Response.data[0].url;
+          const rawStage1Url = stage1Response.data[0].url;
+          stage1ImageDataUrl = await this.ensureImageDataUrl(rawStage1Url);
           console.log('阶段1完成,图片格式:', stage1ImageDataUrl.substring(0, 30) + '...');
         } else {
           throw new Error('阶段1: No image generated from Gemini');

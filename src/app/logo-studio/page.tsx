@@ -476,6 +476,15 @@ export default function LogoStudioPage() {
       formData.append('avatarStage', 'step2'); // 标记为步骤2
       formData.append('step1ResultUrl', avatarStep1Result); // 传入步骤1的结果URL
 
+      // 步骤2也需要上传菜品图（即使不使用，也是为了通过后端验证）
+      formData.append('dishImage', dishImage!);
+
+      // 步骤2也需要上传模板（即使不使用，也是为了通过后端验证）
+      const avatarResponse = await fetch(avatarTemplate!.url);
+      const avatarBlob = await avatarResponse.blob();
+      formData.append('avatarTemplate', avatarBlob, `avatar-${avatarTemplate!.id}.png`);
+      formData.append('avatarTemplateId', avatarTemplate!.id);
+
       const response = await fetch('/api/logo-studio/generate', {
         method: 'POST',
         body: formData,
@@ -491,6 +500,7 @@ export default function LogoStudioPage() {
       if (responseData.data && responseData.data.avatarUrl) {
         console.log('步骤2完成(同步模式):', responseData.data.avatarUrl);
         setAvatarResult(responseData.data.avatarUrl);
+        setAvatarStep1Result(null); // 清除步骤1结果，步骤2是最终版本
         setAvatarStep2Generating(false);
       } else if (responseData.jobId) {
         // 本地异步模式
@@ -597,6 +607,7 @@ export default function LogoStudioPage() {
           if (status.status === 'succeeded' && status.result?.avatarUrl) {
             console.log('步骤2完成:', status.result.avatarUrl);
             setAvatarResult(status.result.avatarUrl);
+            setAvatarStep1Result(null); // 清除步骤1结果，步骤2是最终版本
             setAvatarStep2Generating(false);
             shouldStopPollingRef.current = true;
             return;
@@ -1107,7 +1118,7 @@ export default function LogoStudioPage() {
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4 mr-2" />
-                      步骤2：店名替换 (Doubao)
+                      步骤2：店名替换 (seedream-4)
                     </>
                   )}
                 </Button>
