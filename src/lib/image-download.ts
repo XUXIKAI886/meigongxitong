@@ -188,6 +188,201 @@ export async function downloadCanvasImage(
 }
 
 /**
+ * 调整图片尺寸（拉伸缩放，可能变形）
+ *
+ * @param imageUrl - 原始图片URL
+ * @param targetWidth - 目标宽度
+ * @param targetHeight - 目标高度
+ * @returns Promise<string> - 调整后的图片 Data URL
+ */
+export async function resizeImage(
+  imageUrl: string,
+  targetWidth: number,
+  targetHeight: number
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    // 创建图片对象
+    const img = new Image();
+    img.crossOrigin = 'anonymous'; // 处理跨域问题
+
+    img.onload = () => {
+      try {
+        // 创建 canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('无法获取 Canvas 上下文'));
+          return;
+        }
+
+        // 绘制调整后的图片
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+        // 转换为 Data URL
+        const dataUrl = canvas.toDataURL('image/png');
+        resolve(dataUrl);
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    img.onerror = () => {
+      reject(new Error('图片加载失败'));
+    };
+
+    img.src = imageUrl;
+  });
+}
+
+/**
+ * 居中裁剪图片到指定尺寸（保持比例，不变形）
+ *
+ * 算法说明：
+ * 1. 计算原图和目标的宽高比
+ * 2. 按照"覆盖"模式缩放（较大边完全填充目标尺寸）
+ * 3. 从中心裁剪出目标尺寸
+ *
+ * @param imageUrl - 原始图片URL
+ * @param targetWidth - 目标宽度
+ * @param targetHeight - 目标高度
+ * @returns Promise<string> - 裁剪后的图片 Data URL
+ */
+export async function cropImageCenter(
+  imageUrl: string,
+  targetWidth: number,
+  targetHeight: number
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('无法获取 Canvas 上下文'));
+          return;
+        }
+
+        // 计算缩放比例 - 使用"覆盖"模式（cover）
+        const sourceWidth = img.width;
+        const sourceHeight = img.height;
+        const sourceRatio = sourceWidth / sourceHeight;
+        const targetRatio = targetWidth / targetHeight;
+
+        let drawWidth: number;
+        let drawHeight: number;
+        let offsetX: number;
+        let offsetY: number;
+
+        if (sourceRatio > targetRatio) {
+          // 原图更宽，按高度缩放，左右裁剪
+          drawHeight = targetHeight;
+          drawWidth = sourceWidth * (targetHeight / sourceHeight);
+          offsetX = (targetWidth - drawWidth) / 2;
+          offsetY = 0;
+        } else {
+          // 原图更高或比例相同，按宽度缩放，上下裁剪
+          drawWidth = targetWidth;
+          drawHeight = sourceHeight * (targetWidth / sourceWidth);
+          offsetX = 0;
+          offsetY = (targetHeight - drawHeight) / 2;
+        }
+
+        console.log(`🖼️ 居中裁剪参数:`, {
+          原图尺寸: `${sourceWidth}×${sourceHeight}`,
+          目标尺寸: `${targetWidth}×${targetHeight}`,
+          绘制尺寸: `${drawWidth}×${drawHeight}`,
+          偏移量: `${offsetX}, ${offsetY}`
+        });
+
+        // 绘制图片（居中裁剪）
+        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+
+        // 转换为 Data URL
+        const dataUrl = canvas.toDataURL('image/png');
+        resolve(dataUrl);
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    img.onerror = () => {
+      reject(new Error('图片加载失败'));
+    };
+
+    img.src = imageUrl;
+  });
+}
+
+/**
+ * 下载并调整图片尺寸（拉伸缩放）
+ *
+ * @param imageUrl - 原始图片URL
+ * @param targetWidth - 目标宽度
+ * @param targetHeight - 目标高度
+ * @param filename - 保存的文件名
+ * @returns Promise<boolean> - 下载是否成功
+ */
+export async function downloadResizedImage(
+  imageUrl: string,
+  targetWidth: number,
+  targetHeight: number,
+  filename: string
+): Promise<boolean> {
+  try {
+    console.log(`📐 调整图片尺寸: ${targetWidth}x${targetHeight}`);
+
+    // 1. 调整图片尺寸
+    const resizedDataUrl = await resizeImage(imageUrl, targetWidth, targetHeight);
+
+    // 2. 下载调整后的图片
+    return await downloadImage(resizedDataUrl, filename);
+  } catch (error) {
+    console.error('调整图片尺寸失败:', error);
+    alert('图片处理失败: ' + (error instanceof Error ? error.message : '未知错误'));
+    return false;
+  }
+}
+
+/**
+ * 下载居中裁剪后的图片（保持比例，不变形）
+ *
+ * @param imageUrl - 原始图片URL
+ * @param targetWidth - 目标宽度
+ * @param targetHeight - 目标高度
+ * @param filename - 保存的文件名
+ * @returns Promise<boolean> - 下载是否成功
+ */
+export async function downloadCroppedImage(
+  imageUrl: string,
+  targetWidth: number,
+  targetHeight: number,
+  filename: string
+): Promise<boolean> {
+  try {
+    console.log(`✂️ 居中裁剪图片: ${targetWidth}x${targetHeight}`);
+
+    // 1. 居中裁剪图片
+    const croppedDataUrl = await cropImageCenter(imageUrl, targetWidth, targetHeight);
+
+    // 2. 下载裁剪后的图片
+    return await downloadImage(croppedDataUrl, filename);
+  } catch (error) {
+    console.error('裁剪图片失败:', error);
+    alert('图片裁剪失败: ' + (error instanceof Error ? error.message : '未知错误'));
+    return false;
+  }
+}
+
+/**
  * 测试 Tauri 保存对话框（用于调试）
  */
 export async function testTauriSaveDialog(): Promise<void> {

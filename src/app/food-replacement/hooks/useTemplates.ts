@@ -2,24 +2,54 @@ import { useState, useCallback } from 'react';
 import { Template } from '../types';
 
 export function useTemplates() {
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [meituanTemplates, setMeituanTemplates] = useState<Template[]>([]);
+  const [elemeTemplates, setElemeTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
-  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(true); // 默认显示模板选择器
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [currentPlatform, setCurrentPlatform] = useState<'meituan' | 'eleme'>('meituan'); // 当前选择的平台
 
-  // 加载模板列表
-  const loadTemplates = useCallback(async () => {
+  // 加载美团模板列表
+  const loadMeituanTemplates = useCallback(async () => {
+    setCurrentPlatform('meituan'); // 设置当前平台
+
+    // 如果已经加载过，直接返回
+    if (meituanTemplates.length > 0) {
+      return;
+    }
+
     setLoadingTemplates(true);
     try {
       const response = await fetch('/api/templates');
       const data = await response.json();
-      setTemplates(data.templates || []);
+      setMeituanTemplates(data.templates || []);
     } catch (error) {
-      console.error('加载模板失败:', error);
+      console.error('加载美团模板失败:', error);
     } finally {
       setLoadingTemplates(false);
     }
-  }, []);
+  }, [meituanTemplates.length]);
+
+  // 加载饿了么模板列表
+  const loadElemeTemplates = useCallback(async () => {
+    setCurrentPlatform('eleme'); // 设置当前平台
+
+    // 如果已经加载过，直接返回
+    if (elemeTemplates.length > 0) {
+      return;
+    }
+
+    setLoadingTemplates(true);
+    try {
+      const response = await fetch('/api/eleme-templates');
+      const data = await response.json();
+      setElemeTemplates(data.templates || []);
+    } catch (error) {
+      console.error('加载饿了么模板失败:', error);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  }, [elemeTemplates.length]);
 
   // 选择模板
   const selectTemplate = useCallback((template: Template) => {
@@ -33,13 +63,16 @@ export function useTemplates() {
 
   return {
     // 状态
-    templates,
+    meituanTemplates,
+    elemeTemplates,
     selectedTemplate,
     showTemplateSelector,
     loadingTemplates,
+    currentPlatform,
 
     // 操作
-    loadTemplates,
+    loadMeituanTemplates,
+    loadElemeTemplates,
     selectTemplate,
     clearTemplateSelection,
     setShowTemplateSelector,

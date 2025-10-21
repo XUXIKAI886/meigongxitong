@@ -110,6 +110,13 @@ class BatchFoodReplacementProcessor {
 
         // 保存生成的图片 (使用 FileManager 自动适配 Vercel)
         const imageBuffer = Buffer.from(base64Data, 'base64');
+
+        // 使用 sharp 获取实际图片尺寸
+        const sharp = (await import('sharp')).default;
+        const metadata = await sharp(imageBuffer).metadata();
+        const actualWidth = metadata.width || 1200;
+        const actualHeight = metadata.height || 900;
+
         const savedFile = await FileManager.saveBuffer(
           imageBuffer,
           `food-replacement-batch-${i + 1}-${Date.now()}.png`,
@@ -120,8 +127,8 @@ class BatchFoodReplacementProcessor {
         const result = {
           sourceImageIndex: i,
           imageUrl: savedFile.url,
-          width: 1200,
-          height: 900,
+          width: actualWidth,
+          height: actualHeight,
           originalSourceType: sourceImageTypes[i]
         };
 
@@ -298,14 +305,26 @@ export async function POST(request: NextRequest) {
     } else {
       // 使用模板URL - 从文件系统直接读取
       try {
-        // 从URL中提取文件名
+        // 从URL中提取文件名和平台
         const urlParts = targetImageUrl.split('/');
         const filename = decodeURIComponent(urlParts[urlParts.length - 1]);
-        const templatePath = path.join(process.cwd(), '目标图片模板', filename);
+
+        // 根据URL路径判断是美团还是饿了么模板
+        const isElemeTemplate = targetImageUrl.includes('/api/eleme-templates/');
+        const templateDir = isElemeTemplate ? '饿了么产品图模板' : '目标图片模板';
+        const templatePath = path.join(process.cwd(), templateDir, filename);
+
+        console.log('Batch - Loading template:', {
+          url: targetImageUrl,
+          isElemeTemplate,
+          templateDir,
+          filename,
+          fullPath: templatePath
+        });
 
         // 检查文件是否存在
         if (!fs.existsSync(templatePath)) {
-          throw new Error(`Template file not found: ${filename}`);
+          throw new Error(`Template file not found: ${filename} in ${templateDir}`);
         }
 
         // 直接从文件系统读取

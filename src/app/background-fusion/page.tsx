@@ -29,10 +29,12 @@ export default function BackgroundFusionPage() {
   const [statusMessage, setStatusMessage] = useState('');
 
   // 模板相关状态
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [meituanTemplates, setMeituanTemplates] = useState<any[]>([]);
+  const [elemeTemplates, setElemeTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
-  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(true); // 默认显示模板选择器
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [currentPlatform, setCurrentPlatform] = useState<'meituan' | 'eleme'>('meituan');
 
   // 历史结果状态
   const [historicalBatchResults, setHistoricalBatchResults] = useState<any[]>([]);
@@ -40,15 +42,41 @@ export default function BackgroundFusionPage() {
   // 保存原始文件名的ref (避免闭包问题)
   const fileNamesRef = useRef<string[]>([]);
 
-  // 加载模板
-  const loadTemplates = async () => {
+  // 加载美团模板
+  const loadMeituanTemplates = async () => {
+    setCurrentPlatform('meituan');
+
+    if (meituanTemplates.length > 0) {
+      return;
+    }
+
     setLoadingTemplates(true);
     try {
       const response = await fetch('/api/background-fusion/templates');
       const data = await response.json();
-      setTemplates(data.templates || []);
+      setMeituanTemplates(data.templates || []);
     } catch (error) {
-      console.error('Failed to load templates:', error);
+      console.error('Failed to load Meituan templates:', error);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  // 加载饿了么模板
+  const loadElemeTemplates = async () => {
+    setCurrentPlatform('eleme');
+
+    if (elemeTemplates.length > 0) {
+      return;
+    }
+
+    setLoadingTemplates(true);
+    try {
+      const response = await fetch('/api/eleme-background-templates');
+      const data = await response.json();
+      setElemeTemplates(data.templates || []);
+    } catch (error) {
+      console.error('Failed to load Eleme templates:', error);
     } finally {
       setLoadingTemplates(false);
     }
@@ -79,7 +107,7 @@ export default function BackgroundFusionPage() {
 
   // 页面加载时加载模板和历史结果
   useEffect(() => {
-    loadTemplates();
+    loadMeituanTemplates(); // 默认加载美团模板
     
     // 加载历史批量结果
     const saved = localStorage.getItem('backgroundFusionBatchResults');
@@ -585,6 +613,42 @@ export default function BackgroundFusionPage() {
             {/* 模式切换按钮 */}
             <div className="flex space-x-2 mb-4">
               <button
+                onClick={() => {
+                  setShowTemplateSelector(true);
+                  loadMeituanTemplates();
+                }}
+                className={`flex items-center px-2 py-2 rounded-md text-sm transition-colors justify-center ${
+                  showTemplateSelector && currentPlatform === 'meituan'
+                    ? 'bg-yellow-500 text-black font-medium border-2 border-yellow-600'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <svg className="w-4 h-4 mr-1" viewBox="0 0 200 200" fill="none">
+                  <rect width="200" height="200" rx="45" fill="#FFD100"/>
+                  <text x="100" y="135" fontSize="85" fontWeight="bold" textAnchor="middle" fill="#000">美团</text>
+                </svg>
+                美团模板
+              </button>
+              <button
+                onClick={() => {
+                  setShowTemplateSelector(true);
+                  loadElemeTemplates();
+                }}
+                className={`flex items-center px-2 py-2 rounded-md text-sm transition-colors justify-center ${
+                  showTemplateSelector && currentPlatform === 'eleme'
+                    ? 'bg-blue-500 text-white font-medium border-2 border-blue-600'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <svg className="w-4 h-4 mr-1" viewBox="0 0 200 200" fill="none">
+                  <rect width="200" height="200" rx="45" fill="#0091FF"/>
+                  <circle cx="100" cy="100" r="70" stroke="white" strokeWidth="12" fill="none"/>
+                  <path d="M 85 85 Q 100 70, 115 85" stroke="white" strokeWidth="10" fill="none" strokeLinecap="round"/>
+                  <circle cx="130" cy="95" r="5" fill="white"/>
+                </svg>
+                饿了么模板
+              </button>
+              <button
                 onClick={() => setShowTemplateSelector(false)}
                 className={`flex items-center px-3 py-2 rounded-md text-sm transition-colors ${
                   !showTemplateSelector
@@ -594,22 +658,6 @@ export default function BackgroundFusionPage() {
               >
                 <Upload className="w-4 h-4 mr-1" />
                 上传图片
-              </button>
-              <button
-                onClick={() => {
-                  setShowTemplateSelector(true);
-                  if (templates.length === 0) {
-                    loadTemplates();
-                  }
-                }}
-                className={`flex items-center px-3 py-2 rounded-md text-sm transition-colors ${
-                  showTemplateSelector
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                <Grid className="w-4 h-4 mr-1" />
-                选择模板
               </button>
             </div>
 
@@ -644,9 +692,9 @@ export default function BackgroundFusionPage() {
                         <Loader2 className="mx-auto h-8 w-8 text-orange-500 animate-spin mb-2" />
                         <p className="text-sm text-gray-600">加载模板中...</p>
                       </div>
-                    ) : templates.length > 0 ? (
+                    ) : (currentPlatform === 'eleme' ? elemeTemplates : meituanTemplates).length > 0 ? (
                       <div className="grid grid-cols-2 gap-3">
-                        {templates.map((template, index) => (
+                        {(currentPlatform === 'eleme' ? elemeTemplates : meituanTemplates).map((template, index) => (
                           <div
                             key={index}
                             className="group relative cursor-pointer"
@@ -655,7 +703,9 @@ export default function BackgroundFusionPage() {
                             <img
                               src={template.url}
                               alt={template.name}
-                              className="w-full h-24 object-cover rounded border group-hover:border-orange-400 transition-colors"
+                              className={`w-full object-cover rounded border group-hover:border-orange-400 transition-colors ${
+                                currentPlatform === 'eleme' ? 'aspect-square' : 'aspect-[4/3]'
+                              }`}
                               onError={(e) => {
                                 console.error('Template image failed to load:', template.url);
                                 e.currentTarget.style.backgroundColor = '#f3f4f6';

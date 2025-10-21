@@ -25,6 +25,7 @@ export interface Template {
   name: string;
   url: string;
   category?: string;
+  platform?: 'meituan' | 'eleme'; // 平台标识：美团或饿了么
 }
 
 export interface FoodReplacementResult {

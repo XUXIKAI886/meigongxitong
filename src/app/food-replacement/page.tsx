@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { useFoodReplacement } from './hooks/useFoodReplacement';
 import { useTemplates } from './hooks/useTemplates';
 import { useImageUpload } from './hooks/useImageUpload';
@@ -31,11 +32,14 @@ export default function FoodReplacementPage() {
   } = useFoodReplacement();
 
   const {
-    templates,
+    meituanTemplates,
+    elemeTemplates,
     selectedTemplate,
     showTemplateSelector,
     loadingTemplates,
-    loadTemplates,
+    currentPlatform,
+    loadMeituanTemplates,
+    loadElemeTemplates,
     selectTemplate,
     clearTemplateSelection,
     setShowTemplateSelector,
@@ -61,6 +65,11 @@ export default function FoodReplacementPage() {
     setSourceImagePreviews,
   } = useImageUpload();
 
+  // 页面加载时自动加载美团模板
+  useEffect(() => {
+    loadMeituanTemplates();
+  }, [loadMeituanTemplates]);
+
   // 模式切换处理
   const handleModeToggle = (batchMode: boolean) => {
     setIsBatchMode(batchMode);
@@ -76,12 +85,9 @@ export default function FoodReplacementPage() {
     setTemplatePreview(template.url, isBatchMode);
   };
 
-  // 切换模板选择器显示
+  // 切换模板选择器显示（不再在这里加载模板，由按钮单独控制）
   const handleToggleTemplateSelector = (show: boolean) => {
     setShowTemplateSelector(show);
-    if (show && templates.length === 0) {
-      loadTemplates();
-    }
   };
 
   // 开始处理
@@ -152,8 +158,8 @@ export default function FoodReplacementPage() {
 
             console.log('转换后的结果:', newResults);
 
-            // 添加到completedResults (跳过localStorage保存,因为base64数据太大)
-            addResults(newResults, true);
+            // 添加到completedResults
+            addResults(newResults);
 
             // 设置最后一个结果的状态用于显示
             if (newResults.length > 0) {
@@ -241,8 +247,8 @@ export default function FoodReplacementPage() {
               processedAt: new Date().toISOString(),
             };
 
-            // 添加到completedResults (跳过localStorage保存,因为base64数据太大)
-            addResults([newResult], true);
+            // 添加到completedResults
+            addResults([newResult]);
 
             setJobStatus({
               id: 'vercel-single',
@@ -337,12 +343,15 @@ export default function FoodReplacementPage() {
                 batchTargetDropzone={batchTargetDropzone}
                 selectedTemplate={selectedTemplate}
                 showTemplateSelector={showTemplateSelector}
-                templates={templates}
+                meituanTemplates={meituanTemplates}
+                elemeTemplates={elemeTemplates}
                 loadingTemplates={loadingTemplates}
+                currentPlatform={currentPlatform}
                 onToggleTemplateSelector={handleToggleTemplateSelector}
                 onSelectTemplate={handleTemplateSelect}
                 onClearTemplate={clearTemplateSelection}
-                onLoadTemplates={loadTemplates}
+                onLoadMeituanTemplates={loadMeituanTemplates}
+                onLoadElemeTemplates={loadElemeTemplates}
               />
             </div>
 
@@ -369,7 +378,6 @@ export default function FoodReplacementPage() {
 
             <ResultDisplay
               results={completedResults}
-              onClearHistory={clearHistoryResults}
             />
           </div>
         </div>

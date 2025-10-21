@@ -808,6 +808,55 @@ export default function LogoStudioPage() {
     }
   };
 
+  // 饿了么三件套下载函数 - 按照饿了么平台尺寸要求调整并下载
+  const downloadElemeSet = async () => {
+    if (!storefrontResult || !posterResult || !avatarResult) {
+      alert('请先生成完整的三件套图片');
+      return;
+    }
+
+    try {
+      // 动态导入图片处理函数
+      const { downloadResizedImage } = await import('@/lib/image-download');
+
+      // 饿了么平台尺寸规格
+      const elemeSizes = {
+        avatar: { width: 800, height: 800 },      // 头像
+        storefront: { width: 750, height: 423 },  // 店招
+        poster: { width: 2048, height: 600 }      // 海报
+      };
+
+      console.log('🍜 开始下载饿了么三件套...');
+
+      // 并行下载三张调整尺寸后的图片
+      await Promise.all([
+        downloadResizedImage(
+          avatarResult,
+          elemeSizes.avatar.width,
+          elemeSizes.avatar.height,
+          `饿了么-${storeName || '店铺'}-头像-800x800.png`
+        ),
+        downloadResizedImage(
+          storefrontResult,
+          elemeSizes.storefront.width,
+          elemeSizes.storefront.height,
+          `饿了么-${storeName || '店铺'}-店招-750x423.png`
+        ),
+        downloadResizedImage(
+          posterResult,
+          elemeSizes.poster.width,
+          elemeSizes.poster.height,
+          `饿了么-${storeName || '店铺'}-海报-2048x600.png`
+        )
+      ]);
+
+      console.log('✅ 饿了么三件套下载完成');
+    } catch (error) {
+      console.error('饿了么三件套下载失败:', error);
+      alert('下载失败，请重试');
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
@@ -1200,7 +1249,7 @@ export default function LogoStudioPage() {
 
             {/* 批量下载按钮 - 放在生成进度框下方 */}
             {(storefrontResult && posterResult && avatarResult) && (
-              <div className="flex justify-center">
+              <div className="flex justify-center gap-4">
                 <Button
                   onClick={async () => {
                     await Promise.all([
@@ -1210,9 +1259,27 @@ export default function LogoStudioPage() {
                     ]);
                   }}
                   size="lg"
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg"
+                  className="bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-white shadow-lg font-semibold transition-all hover:shadow-xl"
                 >
-                  📦 批量下载全部图片
+                  <svg className="w-5 h-5 mr-2" viewBox="0 0 200 200" fill="none">
+                    <rect width="200" height="200" rx="45" fill="white" opacity="0.95"/>
+                    <text x="100" y="135" fontSize="85" fontWeight="bold" textAnchor="middle" fill="#FFD100">美团</text>
+                  </svg>
+                  美团三件套下载
+                </Button>
+
+                <Button
+                  onClick={downloadElemeSet}
+                  size="lg"
+                  className="bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white shadow-lg font-semibold transition-all hover:shadow-xl"
+                >
+                  <svg className="w-5 h-5 mr-2" viewBox="0 0 200 200" fill="none">
+                    <rect width="200" height="200" rx="45" fill="white" opacity="0.95"/>
+                    <circle cx="100" cy="100" r="70" stroke="#0091FF" strokeWidth="12" fill="none"/>
+                    <path d="M 85 85 Q 100 70, 115 85" stroke="#0091FF" strokeWidth="10" fill="none" strokeLinecap="round"/>
+                    <circle cx="130" cy="95" r="5" fill="#0091FF"/>
+                  </svg>
+                  饿了么三件套下载
                 </Button>
               </div>
             )}
@@ -1261,13 +1328,37 @@ export default function LogoStudioPage() {
                               </CardTitle>
                               <p className="text-xs text-gray-600 mt-1">适合外卖平台店铺展示</p>
                             </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => downloadImage(storefrontResult, `${storeName}-店招设计.png`)}
-                            >
-                              下载
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-yellow-500 text-yellow-700 hover:bg-yellow-50 hover:border-yellow-600 font-medium transition-all"
+                                onClick={() => downloadImage(storefrontResult, `${storeName}-店招设计.png`)}
+                              >
+                                <svg className="w-4 h-4 mr-1.5" viewBox="0 0 200 200" fill="none">
+                                  <rect width="200" height="200" rx="45" fill="#FFD100"/>
+                                  <text x="100" y="135" fontSize="85" fontWeight="bold" textAnchor="middle" fill="#000">美团</text>
+                                </svg>
+                                美团版
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-blue-500 text-blue-700 hover:bg-blue-50 hover:border-blue-600 font-medium transition-all"
+                                onClick={async () => {
+                                  const { downloadResizedImage } = await import('@/lib/image-download');
+                                  await downloadResizedImage(storefrontResult, 750, 423, `饿了么-${storeName}-店招-750x423.png`);
+                                }}
+                              >
+                                <svg className="w-4 h-4 mr-1.5" viewBox="0 0 200 200" fill="none">
+                                  <rect width="200" height="200" rx="45" fill="#0091FF"/>
+                                  <circle cx="100" cy="100" r="70" stroke="white" strokeWidth="12" fill="none"/>
+                                  <path d="M 85 85 Q 100 70, 115 85" stroke="white" strokeWidth="10" fill="none" strokeLinecap="round"/>
+                                  <circle cx="130" cy="95" r="5" fill="white"/>
+                                </svg>
+                                饿了么版
+                              </Button>
+                            </div>
                           </CardHeader>
                           <CardContent>
                             <img
@@ -1355,13 +1446,37 @@ export default function LogoStudioPage() {
                               </CardTitle>
                               <p className="text-xs text-gray-600 mt-1">适合广告宣传和品牌推广</p>
                             </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => downloadImage(posterResult, `${storeName}-海报设计.png`)}
-                            >
-                              下载
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-yellow-500 text-yellow-700 hover:bg-yellow-50 hover:border-yellow-600 font-medium transition-all"
+                                onClick={() => downloadImage(posterResult, `${storeName}-海报设计.png`)}
+                              >
+                                <svg className="w-4 h-4 mr-1.5" viewBox="0 0 200 200" fill="none">
+                                  <rect width="200" height="200" rx="45" fill="#FFD100"/>
+                                  <text x="100" y="135" fontSize="85" fontWeight="bold" textAnchor="middle" fill="#000">美团</text>
+                                </svg>
+                                美团版
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-blue-500 text-blue-700 hover:bg-blue-50 hover:border-blue-600 font-medium transition-all"
+                                onClick={async () => {
+                                  const { downloadResizedImage } = await import('@/lib/image-download');
+                                  await downloadResizedImage(posterResult, 2048, 600, `饿了么-${storeName}-海报-2048x600.png`);
+                                }}
+                              >
+                                <svg className="w-4 h-4 mr-1.5" viewBox="0 0 200 200" fill="none">
+                                  <rect width="200" height="200" rx="45" fill="#0091FF"/>
+                                  <circle cx="100" cy="100" r="70" stroke="white" strokeWidth="12" fill="none"/>
+                                  <path d="M 85 85 Q 100 70, 115 85" stroke="white" strokeWidth="10" fill="none" strokeLinecap="round"/>
+                                  <circle cx="130" cy="95" r="5" fill="white"/>
+                                </svg>
+                                饿了么版
+                              </Button>
+                            </div>
                           </CardHeader>
                           <CardContent>
                             <img
@@ -1515,13 +1630,37 @@ export default function LogoStudioPage() {
                                   </CardTitle>
                                   <p className="text-xs text-gray-600 mt-1">Doubao API 店名替换完成</p>
                                 </div>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => downloadImage(avatarResult, `${storeName}-头像设计.png`)}
-                                >
-                                  下载
-                                </Button>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-yellow-500 text-yellow-700 hover:bg-yellow-50 hover:border-yellow-600 font-medium transition-all"
+                                    onClick={() => downloadImage(avatarResult, `${storeName}-头像设计.png`)}
+                                  >
+                                    <svg className="w-4 h-4 mr-1.5" viewBox="0 0 200 200" fill="none">
+                                      <rect width="200" height="200" rx="45" fill="#FFD100"/>
+                                      <text x="100" y="135" fontSize="85" fontWeight="bold" textAnchor="middle" fill="#000">美团</text>
+                                    </svg>
+                                    美团版
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-blue-500 text-blue-700 hover:bg-blue-50 hover:border-blue-600 font-medium transition-all"
+                                    onClick={async () => {
+                                      const { downloadResizedImage } = await import('@/lib/image-download');
+                                      await downloadResizedImage(avatarResult, 800, 800, `饿了么-${storeName}-头像-800x800.png`);
+                                    }}
+                                  >
+                                    <svg className="w-4 h-4 mr-1.5" viewBox="0 0 200 200" fill="none">
+                                      <rect width="200" height="200" rx="45" fill="#0091FF"/>
+                                      <circle cx="100" cy="100" r="70" stroke="white" strokeWidth="12" fill="none"/>
+                                      <path d="M 85 85 Q 100 70, 115 85" stroke="white" strokeWidth="10" fill="none" strokeLinecap="round"/>
+                                      <circle cx="130" cy="95" r="5" fill="white"/>
+                                    </svg>
+                                    饿了么版
+                                  </Button>
+                                </div>
                               </CardHeader>
                               <CardContent>
                                 <img

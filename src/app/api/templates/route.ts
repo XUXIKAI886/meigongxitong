@@ -25,14 +25,15 @@ export async function GET() {
     const templates = imageFiles.map((file, index) => {
       const filePath = path.join(templatesDir, file);
       const stats = fs.statSync(filePath);
-      
+
       return {
-        id: `template-${index + 1}`,
+        id: `meituan-template-${index + 1}`,
         name: path.parse(file).name,
         filename: file,
         url: `/api/templates/${encodeURIComponent(file)}`,
         size: stats.size,
         createdAt: stats.birthtime.toISOString(),
+        platform: 'meituan', // 标记为美团模板
       };
     });
 

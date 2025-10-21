@@ -15,43 +15,9 @@ export function useFoodReplacement() {
   const [currentJobFileNames, setCurrentJobFileNames] = useState<string[]>([]);
   const fileNamesRef = useRef<string[]>([]);
 
-  const STORAGE_KEY = 'food-replacement-results';
-
-  // 页面加载时恢复之前的结果
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedResults = localStorage.getItem(STORAGE_KEY);
-      if (savedResults) {
-        try {
-          const parsedResults = JSON.parse(savedResults);
-          // 确保每个结果都有有效的id
-          const validResults = parsedResults.map((result: any, index: number) => ({
-            ...result,
-            id: result.id || `legacy-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 15)}`
-          }));
-          setCompletedResults(validResults);
-        } catch (error) {
-          console.error('解析保存的结果失败:', error);
-          // 清理损坏的数据
-          localStorage.removeItem(STORAGE_KEY);
-        }
-      }
-    }
-  }, []);
-
-  // 保存结果到localStorage
-  const saveResultsToStorage = useCallback((results: FoodReplacementResult[]) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
-    }
-  }, []);
-
-  // 清除历史结果
+  // 清除历史结果 - 仅清空当前会话的状态
   const clearHistoryResults = useCallback(() => {
     setCompletedResults([]);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY);
-    }
   }, []);
 
   // 轮询作业状态
@@ -105,11 +71,7 @@ export function useFoodReplacement() {
                 return resultObj;
               });
 
-            setCompletedResults(prevResults => {
-              const updatedResults = [...prevResults, ...newResults];
-              saveResultsToStorage(updatedResults);
-              return updatedResults;
-            });
+            setCompletedResults(prevResults => [...prevResults, ...newResults]);
             setIsProcessing(false);
             return;
           }
@@ -153,35 +115,12 @@ export function useFoodReplacement() {
     };
 
     poll();
-  }, [shouldStopPolling, saveResultsToStorage]);
+  }, [shouldStopPolling]);
 
-  // 添加结果的方法
-  const addResults = useCallback((newResults: FoodReplacementResult[], skipStorage = false) => {
-    setCompletedResults(prevResults => {
-      const updatedResults = [...prevResults, ...newResults];
-
-      // 如果skipStorage为true(Vercel模式),不保存到localStorage
-      if (!skipStorage) {
-        try {
-          saveResultsToStorage(updatedResults);
-        } catch (error) {
-          console.warn('保存到localStorage失败(可能是配额超出):', error);
-          // 如果保存失败,尝试只保存不含base64的元数据
-          try {
-            const metadataOnly = updatedResults.map(r => ({
-              ...r,
-              imageUrl: r.imageUrl.startsWith('data:') ? '[base64-data-too-large]' : r.imageUrl
-            }));
-            saveResultsToStorage(metadataOnly);
-          } catch (secondError) {
-            console.error('保存元数据也失败:', secondError);
-          }
-        }
-      }
-
-      return updatedResults;
-    });
-  }, [saveResultsToStorage]);
+  // 添加结果的方法 - 仅在当前会话中保存，不持久化
+  const addResults = useCallback((newResults: FoodReplacementResult[]) => {
+    setCompletedResults(prevResults => [...prevResults, ...newResults]);
+  }, []);
 
   return {
     // 状态

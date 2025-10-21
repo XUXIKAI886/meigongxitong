@@ -1,19 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DownloadIcon, TrashIcon, PackageIcon } from 'lucide-react';
 import { FoodReplacementResult } from '../types';
 
 interface ResultDisplayProps {
   results: FoodReplacementResult[];
-  onClearHistory: () => void;
 }
 
-export default function ResultDisplay({ results, onClearHistory }: ResultDisplayProps) {
+export default function ResultDisplay({ results }: ResultDisplayProps) {
   if (results.length === 0) return null;
 
+  // 下载图片 - 原始尺寸
   const downloadImage = async (imageUrl: string, filename: string) => {
     try {
-      // 动态导入下载工具函数 - 兼容 Web 和 Tauri 环境
       const { downloadRemoteImage } = await import('@/lib/image-download');
       await downloadRemoteImage(imageUrl, filename);
     } catch (error) {
@@ -30,20 +28,10 @@ export default function ResultDisplay({ results, onClearHistory }: ResultDisplay
     try {
       for (let i = 0; i < results.length; i++) {
         const result = results[i];
-
-        console.log(`批量下载 - 第${i+1}张图片:`, result);
-        console.log(`批量下载 - 原始文件名:`, result.sourceFileName);
-
-        // 使用原始文件名或生成默认名称
         let filename = `food-replacement-batch-${i + 1}-${Date.now()}.png`;
         if (result.sourceFileName) {
-          // 使用完全相同的原始文件名
           filename = result.sourceFileName;
-          console.log(`批量下载 - 使用原始文件名:`, filename);
-        } else {
-          console.log(`批量下载 - 使用默认文件名:`, filename);
         }
-
         await downloadImage(result.imageUrl, filename);
 
         // 添加小延迟避免浏览器限制并发下载
@@ -66,24 +54,13 @@ export default function ResultDisplay({ results, onClearHistory }: ResultDisplay
           <div className="flex items-center gap-2">
             {results.length > 1 && (
               <Button
-                variant="default"
+                variant="outline"
                 size="sm"
                 onClick={downloadAllImages}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
               >
-                <PackageIcon className="w-4 h-4" />
                 批量下载
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClearHistory}
-              className="flex items-center gap-2"
-            >
-              <TrashIcon className="w-4 h-4" />
-              清除历史
-            </Button>
           </div>
         </div>
       </CardHeader>
@@ -109,27 +86,18 @@ export default function ResultDisplay({ results, onClearHistory }: ResultDisplay
               {/* 悬停时显示下载按钮 */}
               <div className="absolute inset-0 bg-transparent group-hover:bg-black group-hover:bg-opacity-10 transition-all duration-300 rounded-lg flex items-center justify-center">
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   size="sm"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white shadow-lg"
                   onClick={() => {
-                    // 使用原始文件名或生成默认名称
                     let filename = `food-replacement-${index + 1}-${Date.now()}.png`;
-                    console.log('单张下载 - 结果对象:', result);
-                    console.log('单张下载 - 原始文件名:', result.sourceFileName);
-
                     if (result.sourceFileName) {
-                      // 使用完全相同的原始文件名
                       filename = result.sourceFileName;
-                      console.log('单张下载 - 使用原始文件名:', filename);
-                    } else {
-                      console.log('单张下载 - 使用默认文件名:', filename);
                     }
                     downloadImage(result.imageUrl, filename);
                   }}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white hover:bg-gray-100 text-gray-800 shadow-lg"
                 >
-                  <DownloadIcon className="w-4 h-4 mr-2" />
-                  下载
+                  下载图片
                 </Button>
               </div>
 
@@ -150,7 +118,7 @@ export default function ResultDisplay({ results, onClearHistory }: ResultDisplay
 
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500 mb-4">
-            提示: 悬停在图片上可以下载高清版本
+            提示: 悬停在图片上可下载原图
           </p>
         </div>
       </CardContent>

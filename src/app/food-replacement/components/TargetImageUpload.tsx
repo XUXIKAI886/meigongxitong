@@ -25,12 +25,15 @@ interface TargetImageUploadProps {
   // 模板相关
   selectedTemplate?: Template | null;
   showTemplateSelector: boolean;
-  templates: Template[];
+  meituanTemplates: Template[];
+  elemeTemplates: Template[];
   loadingTemplates: boolean;
+  currentPlatform: 'meituan' | 'eleme';
   onToggleTemplateSelector: (show: boolean) => void;
   onSelectTemplate: (template: Template) => void;
   onClearTemplate: () => void;
-  onLoadTemplates: () => void;
+  onLoadMeituanTemplates: () => void;
+  onLoadElemeTemplates: () => void;
 }
 
 export default function TargetImageUpload({
@@ -43,16 +46,22 @@ export default function TargetImageUpload({
   batchTargetDropzone,
   selectedTemplate,
   showTemplateSelector,
-  templates,
+  meituanTemplates,
+  elemeTemplates,
   loadingTemplates,
+  currentPlatform,
   onToggleTemplateSelector,
   onSelectTemplate,
   onClearTemplate,
-  onLoadTemplates,
+  onLoadMeituanTemplates,
+  onLoadElemeTemplates,
 }: TargetImageUploadProps) {
   const currentImage = isBatchMode ? batchTargetImage : targetImage;
   const currentPreview = isBatchMode ? batchTargetImagePreview : targetImagePreview;
   const currentDropzone = isBatchMode ? batchTargetDropzone : targetDropzone;
+
+  // 根据当前平台确定显示哪个平台的模板
+  const currentTemplates = currentPlatform === 'eleme' ? elemeTemplates : meituanTemplates;
 
   return (
     <Card>
@@ -64,10 +73,48 @@ export default function TargetImageUpload({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* 模式切换按钮 */}
-        <div className="flex space-x-2">
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={() => {
+              onToggleTemplateSelector(true);
+              // 总是调用加载函数以更新currentPlatform
+              onLoadMeituanTemplates();
+            }}
+            className={`flex items-center px-2 py-2 rounded-md text-sm transition-colors justify-center ${
+              showTemplateSelector && currentPlatform === 'meituan'
+                ? 'bg-yellow-500 text-black font-medium border-2 border-yellow-600'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <svg className="w-4 h-4 mr-1" viewBox="0 0 200 200" fill="none">
+              <rect width="200" height="200" rx="45" fill="#FFD100"/>
+              <text x="100" y="135" fontSize="85" fontWeight="bold" textAnchor="middle" fill="#000">美团</text>
+            </svg>
+            美团模板
+          </button>
+          <button
+            onClick={() => {
+              onToggleTemplateSelector(true);
+              // 总是调用加载函数以更新currentPlatform
+              onLoadElemeTemplates();
+            }}
+            className={`flex items-center px-2 py-2 rounded-md text-sm transition-colors justify-center ${
+              showTemplateSelector && currentPlatform === 'eleme'
+                ? 'bg-blue-500 text-white font-medium border-2 border-blue-600'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <svg className="w-4 h-4 mr-1" viewBox="0 0 200 200" fill="none">
+              <rect width="200" height="200" rx="45" fill="#0091FF"/>
+              <circle cx="100" cy="100" r="70" stroke="white" strokeWidth="12" fill="none"/>
+              <path d="M 85 85 Q 100 70, 115 85" stroke="white" strokeWidth="10" fill="none" strokeLinecap="round"/>
+              <circle cx="130" cy="95" r="5" fill="white"/>
+            </svg>
+            饿了么模板
+          </button>
           <button
             onClick={() => onToggleTemplateSelector(false)}
-            className={`flex items-center px-3 py-2 rounded-md text-sm transition-colors flex-1 justify-center ${
+            className={`flex items-center px-2 py-2 rounded-md text-sm transition-colors justify-center ${
               !showTemplateSelector
                 ? 'bg-orange-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -75,22 +122,6 @@ export default function TargetImageUpload({
           >
             <UploadIcon className="w-4 h-4 mr-1" />
             上传图片
-          </button>
-          <button
-            onClick={() => {
-              onToggleTemplateSelector(true);
-              if (templates.length === 0) {
-                onLoadTemplates();
-              }
-            }}
-            className={`flex items-center px-3 py-2 rounded-md text-sm transition-colors flex-1 justify-center ${
-              showTemplateSelector
-                ? 'bg-orange-500 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            <Grid className="w-4 h-4 mr-1" />
-            选择模板
           </button>
         </div>
 
@@ -125,25 +156,27 @@ export default function TargetImageUpload({
                     <Loader2 className="mx-auto h-8 w-8 text-orange-500 animate-spin mb-2" />
                     <p className="text-sm text-gray-600">加载模板中...</p>
                   </div>
-                ) : templates.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                    {templates.map((template, index) => (
+                ) : currentTemplates.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-2">
+                    {currentTemplates.map((template, index) => (
                       <div
                         key={index}
                         className="group relative cursor-pointer"
                         onClick={() => onSelectTemplate(template)}
                       >
-                        <img
-                          src={template.url}
-                          alt={template.name}
-                          className="w-full h-24 object-cover rounded border group-hover:border-orange-400 transition-colors"
-                        />
+                        <div className={`w-full ${currentPlatform === 'eleme' ? 'aspect-square' : 'aspect-[4/3]'} bg-gray-50 rounded border border-gray-200 group-hover:border-orange-400 transition-colors overflow-hidden`}>
+                          <img
+                            src={template.url}
+                            alt={template.name}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
                         <div className="absolute inset-0 bg-transparent group-hover:bg-black group-hover:bg-opacity-30 rounded transition-all duration-200 flex items-center justify-center">
                           <button className="bg-orange-500 text-white px-3 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                             选择
                           </button>
                         </div>
-                        <p className="text-xs text-gray-600 mt-1 truncate">{template.name}</p>
+                        <p className="text-xs text-gray-600 mt-1 truncate text-center">{template.name}</p>
                       </div>
                     ))}
                   </div>
