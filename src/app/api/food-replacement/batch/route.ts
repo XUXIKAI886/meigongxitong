@@ -114,11 +114,19 @@ class BatchFoodReplacementProcessor {
         // 保存生成的图片 (使用 FileManager 自动适配 Vercel)
         const imageBuffer = Buffer.from(base64Data, 'base64');
 
-        // 使用 sharp 获取实际图片尺寸
-        const sharp = (await import('sharp')).default;
-        const metadata = await sharp(imageBuffer).metadata();
-        const actualWidth = metadata.width || 1200;
-        const actualHeight = metadata.height || 900;
+        // 获取图片尺寸 (优先使用轻量级解析，避免Sharp在Vercel环境的兼容问题)
+        let actualWidth = 1200;
+        let actualHeight = 900;
+
+        try {
+          // 尝试从PNG头部读取尺寸 (IHDR chunk)
+          if (imageBuffer[0] === 0x89 && imageBuffer[1] === 0x50) { // PNG signature
+            actualWidth = imageBuffer.readUInt32BE(16);
+            actualHeight = imageBuffer.readUInt32BE(20);
+          }
+        } catch (error) {
+          console.log(`Failed to parse image dimensions for image ${i + 1}, using defaults:`, error);
+        }
 
         const savedFile = await FileManager.saveBuffer(
           imageBuffer,
