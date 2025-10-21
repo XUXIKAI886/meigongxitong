@@ -9,12 +9,31 @@ import { FileManager } from '@/lib/upload';
 import { config } from '@/lib/config';
 import { createReversePromptRequestWithBase64 } from '@/lib/prompt-templates';
 import { ApiResponse } from '@/types';
+import { z } from 'zod';
 
 // 强制使用 Node.js Runtime (Vercel部署必需)
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5分钟超时
 
 // Logo设计工作室处理器
+const trimmedString = z.string().transform((value) => value.trim());
+
+const requiredTrimmedString = trimmedString.pipe(
+  z.string().min(1, '字段不能为空')
+);
+
+const optionalTrimmedString = trimmedString
+  .pipe(z.string().min(1, '字段不能为空'))
+  .optional();
+
+const logoStudioFormSchema = z.object({
+  storeName: requiredTrimmedString,
+  templateStoreName: requiredTrimmedString,
+  generateType: z.enum(['avatar', 'storefront', 'poster']).optional(),
+  avatarStage: z.enum(['step1', 'step2']).optional(),
+  step1ResultUrl: optionalTrimmedString,
+});
+
 class LogoStudioProcessor {
   private imageClient = new ImageApiClient();
   private chatClient = new ChatApiClient();
@@ -889,14 +908,39 @@ export async function POST(request: NextRequest) {
 
     // ✅ 融合模式：解析表单数据
     const formData = await request.formData();
-    const storeName = formData.get('storeName') as string;
-    const templateStoreName = formData.get('templateStoreName') as string;
+
+    const toFormString = (value: FormDataEntryValue | null) =>
+      typeof value === 'string' ? value : undefined;
+
+    const parsedFields = logoStudioFormSchema.safeParse({
+      storeName: toFormString(formData.get('storeName')),
+      templateStoreName: toFormString(formData.get('templateStoreName')),
+      generateType: toFormString(formData.get('generateType')),
+      avatarStage: toFormString(formData.get('avatarStage')),
+      step1ResultUrl: toFormString(formData.get('step1ResultUrl')),
+    });
+
+    if (!parsedFields.success) {
+      const fieldErrors = parsedFields.error.flatten().fieldErrors;
+      return NextResponse.json(
+        {
+          error: '请求参数不正确，请查看填写内容',
+          details: fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const {
+      storeName,
+      templateStoreName,
+      generateType,
+      avatarStage,
+      step1ResultUrl,
+    } = parsedFields.data;
 
     // 主推菜品图
     const dishImageFile = formData.get('dishImage') as File;
-    const generateType = formData.get('generateType') as string; // 新增：指定生成类型
-    const avatarStage = formData.get('avatarStage') as string; // 新增：头像两步骤模式标记
-    const step1ResultUrl = formData.get('step1ResultUrl') as string; // 步骤2使用的步骤1结果URL
 
     // 根据生成类型获取对应的模板文件
     let templateFile: File | null = null;

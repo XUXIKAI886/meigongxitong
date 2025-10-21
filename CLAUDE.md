@@ -53,6 +53,10 @@ NEXT_PUBLIC_MAX_FILE_SIZE=10485760
 STORAGE_ROOT=./.uploads
 ```
 
+**配置更新流程**：
+- 修改环境变量后运行：`node scripts/add-runtime-config.js`
+- 部署前同步存储元数据：`node migrate-storage.js`
+
 ## 核心架构设计
 
 ### 1. API 路由层 (`src/app/api/`)
@@ -68,35 +72,33 @@ STORAGE_ROOT=./.uploads
 - **自动清理**：定期清理过期作业，避免内存泄漏
 - **实时进度**：WebSocket 风格的轮询机制
 
-### 3. 重构后的API客户端架构 (`src/lib/api/`)
-**✅ 已完成代码质量优化 - 符合文件规模控制要求**
+### 3. API客户端架构 (`src/lib/api/`)
 ```
 src/lib/api/
 ├── base/
-│   └── BaseApiClient.ts (44行) - 基础客户端类
+│   └── BaseApiClient.ts - 基础客户端类
 ├── clients/
-│   ├── ImageApiClient.ts (73行) - 图像生成客户端
-│   ├── ChatApiClient.ts (55行) - 聊天API客户端
-│   ├── ProductImageApiClient.ts (131行) - 单品图专用客户端
-│   └── ProductRefineApiClient.ts (113行) - 产品精修客户端
-└── index.ts (36行) - 统一导出和向后兼容层
+│   ├── ImageApiClient.ts - 图像生成客户端
+│   ├── ChatApiClient.ts - 聊天API客户端
+│   ├── ProductImageApiClient.ts - 单品图专用客户端
+│   └── ProductRefineApiClient.ts - 产品精修客户端
+└── index.ts - 统一导出和向后兼容层
 ```
 - **模块化设计**：每个客户端职责单一，便于维护
 - **继承体系**：BaseApiClient提供通用功能
 - **向后兼容**：保持与现有代码的兼容性
 - **统一错误处理**：标准化的重试机制和错误日志
 
-### 4. 重构后的组件设计系统 (`src/components/ui/`)
-**✅ 已完成目录结构优化 - 符合8文件限制要求**
+### 4. 组件设计系统 (`src/components/ui/`)
 ```
 src/components/ui/
-├── base/ (4个文件) - 基础组件
+├── base/ - 基础组件
 │   ├── button.tsx, input.tsx, label.tsx, badge.tsx
-├── form/ (4个文件) - 表单组件
+├── form/ - 表单组件
 │   ├── select.tsx, textarea.tsx, switch.tsx, form.tsx
-├── feedback/ (4个文件) - 反馈组件
+├── feedback/ - 反馈组件
 │   ├── alert.tsx, progress.tsx, skeleton.tsx, sonner.tsx
-├── layout/ (5个文件) - 布局组件
+├── layout/ - 布局组件
 │   ├── card.tsx, dialog.tsx, tabs.tsx, tooltip.tsx, alert-dialog.tsx
 └── index.ts - 统一导出层，保持向后兼容
 ```
@@ -104,10 +106,9 @@ src/components/ui/
 - **规模控制**：每个目录不超过8个文件
 - **向后兼容**：通过index.ts保持现有导入路径有效
 
-### 5. 重构后的功能模块架构
+### 5. 功能模块架构
 
-#### F6 - 食物替换工具 (`food-replacement/`) - ✅ 已完成重构
-**原1,175行 → 现252行主页面 + 6个专用组件**
+#### F6 - 食物替换工具 (`food-replacement/`)
 ```
 src/app/food-replacement/
 ├── page.tsx (252行) - 主页面逻辑
@@ -128,40 +129,39 @@ src/app/food-replacement/
 - **状态管理**：Custom Hooks管理复杂状态逻辑
 - **可维护性**：代码模块化，便于测试和修改
 
-#### 其他功能模块
 #### F1 - 单品图换背景 (`product-image/`)
 - API: `/api/generate/product`
-- 智能抠图 + 背景替换
-- 输出规格：600×450px
+- 智能抠图 + 背景替换，输出规格：600×450px
 
-#### F2 - Logo设计工作室 (`brand-studio/`)
-- API: `/api/reverse-prompt`, `/api/generate/logo`
-- AI提示词反推 + 批量素材生成
-- 多尺寸输出：Logo(800×800)、店招(1280×720)、海报(1440×480)
+#### F2 - Logo设计工作室 (`logo-studio/`)
+- API: `/api/logo-studio/generate`
+- 基于豆包多图融合技术，模板图+菜品图智能融合
+- 三种类型：头像(800×800)、店招(1280×720)、海报(1440×480)
+- 48个精选模板，支持食物替换和文字替换
 
 #### F3 - 门头招牌替换 (`signboard/`)
 - API: `/api/signboard/replace-text`
-- 透视保持 + 自然文字替换
-- 超高分辨率：4693×3520px
+- 透视保持 + 自然文字替换，输出规格：4693×3520px
 
 #### F4 - 图片墙生成 (`picture-wall/`)
-- API: `/api/picture-wall`
-- 风格分析 + 批量生成
-- 输出：3张 240×330px
+- API: `/api/picture-wall`, `/api/reverse-prompt`
+- Gemini API风格分析 + 批量生成，输出：3张 240×330px
 
 #### F5 - 产品精修 (`product-refine/`)
 - API: `/api/product-refine`, `/api/product-refine/batch`
 - AI智能增强 + 批量处理
 
+#### F6 - 食物替换工具 (`food-replacement/`)
+- API: `/api/food-replacement`, `/api/food-replacement/batch`
+- 智能识别 + 精准替换，支持批量模式和重试机制
+
 #### F7 - 背景融合工具 (`background-fusion/`)
 - API: `/api/background-fusion`, `/api/background-fusion/batch`
-- 智能融合 + 场景适配
-- 批量处理，实时进度跟踪
+- 智能融合 + 场景适配，批量处理
 
 #### F8 - 多图融合工具 (`multi-fusion/`)
 - API: `/api/multi-fusion`
-- 最多8张图片智能融合
-- 精确食物提取，杂物过滤
+- 最多8张图片智能融合，精确食物提取
 
 ## 关键技术特性
 
@@ -189,6 +189,8 @@ src/app/food-replacement/
 - **TypeScript严格模式**：启用strict类型检查
 - **组件命名**：PascalCase，文件名使用kebab-case
 - **API路由**：RESTful设计，使用标准HTTP状态码
+- **文件规模控制**：单文件不超过300行，超过则拆分为组件/Hook
+- **目录结构规范**：每个目录不超过8个文件，按功能分类组织
 
 ### 性能优化
 - **Turbopack构建**：使用Next.js 15的Turbopack加速构建
@@ -204,8 +206,17 @@ src/app/food-replacement/
 
 ### 测试与调试
 - **开发调试**：`/api/debug/jobs` 路由用于作业状态调试
-- **API测试**：使用Postman或类似工具测试各个API端点
-- **错误监控**：检查浏览器开发者工具的网络和控制台选项卡
+- **手动测试**：通过 `npm run dev` 验证每个功能模块流程
+- **网络监控**：使用浏览器开发者工具的网络和控制台选项卡
+- **API测试**：测试fixtures位于 `src/lib/api-client.ts`
+
+## Git提交规范
+
+遵循现有的提交信息格式：
+- **格式**：`type: summary` (总结不超过72字符)
+- **类型**：feat(新功能)、fix(修复)、update(更新)、docs(文档)
+- **双语说明**：仅在需要澄清时使用中英文双语
+- **PR要求**：包含手动测试检查清单、环境变量更新、截图对比
 
 ## 部署说明
 
@@ -216,6 +227,7 @@ src/app/food-replacement/
 4. 配置静态文件服务
 5. 启用HTTPS（推荐）
 6. 设置适当的CORS策略
+7. Vercel部署会自动使用同步处理模式
 
 ### 监控指标
 - API响应时间和成功率
