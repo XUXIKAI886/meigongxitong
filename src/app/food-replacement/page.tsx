@@ -125,7 +125,6 @@ export default function FoodReplacementPage() {
               id: `batch-${Date.now()}`,
               status: 'running',
               progress,
-              result: null,
             });
 
             console.log(`处理第 ${i + 1}/${sourceImages.length} 张图片: ${sourceImages[i].name}`);
@@ -180,16 +179,19 @@ export default function FoodReplacementPage() {
 
         // 所有图片处理完成
         setIsProcessing(false);
-        setJobStatus({
-          id: 'batch-completed',
-          status: 'succeeded',
-          progress: 100,
-          result: newResults.length > 0 ? {
-            imageUrl: newResults[newResults.length - 1].imageUrl,
-            width: newResults[newResults.length - 1].width,
-            height: newResults[newResults.length - 1].height,
-          } : null,
-        });
+
+        if (newResults.length > 0) {
+          setJobStatus({
+            id: 'batch-completed',
+            status: 'succeeded',
+            progress: 100,
+            result: {
+              imageUrl: newResults[newResults.length - 1].imageUrl,
+              width: newResults[newResults.length - 1].width,
+              height: newResults[newResults.length - 1].height,
+            },
+          });
+        }
 
         alert(`批量处理完成!\n成功: ${successCount}/${sourceImages.length}${failedCount > 0 ? `\n失败: ${failedCount}` : ''}`);
       } else {
