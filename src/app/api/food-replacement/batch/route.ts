@@ -26,13 +26,16 @@ class BatchFoodReplacementProcessor {
     const { sourceImageBuffers, sourceImageTypes, targetImageBuffer, targetImageType, prompt } = payload;
 
     console.log(`Starting batch food replacement for ${sourceImageBuffers.length} source images`);
-    
+
     const results = [];
     let processedCount = 0;
 
-    // 确保输出目录存在
-    const generatedDir = path.join(process.cwd(), 'public', 'generated');
-    await mkdir(generatedDir, { recursive: true });
+    // 确保输出目录存在 (仅在非Vercel环境)
+    const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    if (!isVercel) {
+      const generatedDir = path.join(process.cwd(), 'public', 'generated');
+      await mkdir(generatedDir, { recursive: true });
+    }
 
     for (let i = 0; i < sourceImageBuffers.length; i++) {
       try {
