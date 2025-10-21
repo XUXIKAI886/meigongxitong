@@ -316,92 +316,116 @@ export default function BackgroundFusionPage() {
     setBatchResults([]);
 
     try {
-      const formData = new FormData();
-      let fileNames: string[] = [];
-
       if (isBatchMode) {
-        // 批量模式：收集所有源图片文件名
-        fileNames = sourceImages.map(img => img.name);
-        console.log('批量模式 - 收集的文件名:', fileNames);
+        // 批量模式：串行处理每张图片（避免响应体过大）
+        console.log(`开始批量处理 ${sourceImages.length} 张图片（串行模式）`);
 
-        sourceImages.forEach((image) => {
-          formData.append('sourceImages', image);
-        });
+        const results: any[] = [];
+        let successCount = 0;
+        let failedCount = 0;
 
-        if (selectedTemplate) {
-          // 使用模板
-          formData.append('targetImageUrl', selectedTemplate.url);
-        } else {
-          // 使用上传的图片
-          formData.append('targetImage', batchTargetImage!);
+        for (let i = 0; i < sourceImages.length; i++) {
+          try {
+            // 更新进度
+            const progress = Math.round(((i + 1) / sourceImages.length) * 100);
+            setProgress(progress);
+            setStatusMessage(`处理第 ${i + 1}/${sourceImages.length} 张图片...`);
+
+            console.log(`处理第 ${i + 1}/${sourceImages.length} 张图片: ${sourceImages[i].name}`);
+
+            // 为每张图片创建单独的请求
+            const singleFormData = new FormData();
+            singleFormData.append('sourceImage', sourceImages[i]);
+
+            if (selectedTemplate) {
+              singleFormData.append('targetImageUrl', selectedTemplate.url);
+            } else if (batchTargetImage) {
+              singleFormData.append('targetImage', batchTargetImage);
+            }
+
+            // 调用单张处理API
+            const response = await fetch('/api/background-fusion', {
+              method: 'POST',
+              body: singleFormData,
+            });
+
+            const data = await response.json();
+
+            if (data.ok && data.data && data.data.imageUrl) {
+              // 处理成功
+              const result = {
+                imageUrl: data.data.imageUrl,
+                width: data.data.width,
+                height: data.data.height,
+                sourceImageIndex: i,
+                sourceFileName: sourceImages[i].name,
+              };
+
+              results.push(result);
+              successCount++;
+
+              console.log(`✓ 第 ${i + 1} 张处理成功`);
+            } else {
+              throw new Error(data.error || '处理失败');
+            }
+
+          } catch (error) {
+            failedCount++;
+            console.error(`✗ 第 ${i + 1} 张处理失败:`, error);
+            // 继续处理下一张
+          }
         }
+
+        // 所有图片处理完成
+        setIsProcessing(false);
+        setBatchResults(results);
+        saveBatchResults(results, true); // skipStorage=true for Vercel
+        setProgress(100);
+        setStatusMessage(`批量处理完成！成功: ${successCount}/${sourceImages.length}${failedCount > 0 ? `, 失败: ${failedCount}` : ''}`);
+
       } else {
-        // 单张模式：收集单个源图片文件名
-        fileNames = [sourceImage!.name];
-        console.log('单张模式 - 收集的文件名:', fileNames);
+        // 单张模式
+        const fileNames = [sourceImage!.name];
+        const formData = new FormData();
 
         formData.append('sourceImage', sourceImage!);
 
         if (selectedTemplate) {
-          // 使用模板
           formData.append('targetImageUrl', selectedTemplate.url);
         } else {
-          // 使用上传的图片
           formData.append('targetImage', targetImage!);
         }
-      }
 
-      const endpoint = isBatchMode ? '/api/background-fusion/batch' : '/api/background-fusion';
-      console.log('发送请求到:', endpoint);
-      console.log('批量模式:', isBatchMode);
+        const response = await fetch('/api/background-fusion', {
+          method: 'POST',
+          body: formData,
+        });
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body: formData,
-      });
+        const data = await response.json();
+        console.log('API响应:', data);
 
-      const data = await response.json();
-      console.log('API响应:', data);
-
-      if (response.ok) {
-        // 检测是同步结果(Vercel)还是异步任务(本地)
-        if (data.ok && data.data) {
-          // Vercel同步模式: 直接显示结果
-          console.log('检测到Vercel同步模式响应');
-          setIsProcessing(false);
-
-          if (isBatchMode) {
-            // 批量模式结果：添加sourceFileName
-            const resultsWithFileName = (data.data || []).map((r: any) => {
-              const sourceIndex = r.sourceImageIndex !== undefined ? r.sourceImageIndex : 0;
-              const originalFileName = fileNames[sourceIndex];
-              return {
-                ...r,
-                sourceFileName: originalFileName,
-              };
-            });
-
-            setBatchResults(resultsWithFileName);
-            saveBatchResults(resultsWithFileName, true); // skipStorage=true for Vercel
-            setStatusMessage('批量处理完成！');
-          } else {
-            // 单张模式结果：保存文件名到ref
+        if (response.ok) {
+          // 检测是同步结果(Vercel)还是异步任务(本地)
+          if (data.ok && data.data) {
+            // Vercel同步模式: 直接显示结果
+            console.log('检测到Vercel同步模式响应');
+            setIsProcessing(false);
             fileNamesRef.current = fileNames;
             setResult(data.data.imageUrl);
             setStatusMessage('处理完成！');
+            setProgress(100);
+          } else if (data.jobId) {
+            // 本地异步模式: 轮询作业状态
+            console.log('检测到本地异步模式，开始轮询作业:', data.jobId);
+            setCurrentJobId(data.jobId);
+            setStatusMessage('任务已创建，开始处理...');
+            pollJobStatus(data.jobId, fileNames);
+          } else {
+            throw new Error('无效的API响应格式');
           }
-          setProgress(100);
-        } else if (data.jobId) {
-          // 本地异步模式: 轮询作业状态，传递文件名
-          console.log('检测到本地异步模式，开始轮询作业:', data.jobId);
-          setCurrentJobId(data.jobId);
-          setStatusMessage('任务已创建，开始处理...');
-          pollJobStatus(data.jobId, fileNames);
         } else {
-          throw new Error('无效的API响应格式');
+          throw new Error(data.error || '处理失败');
         }
-      } else {
-        throw new Error(data.error || '处理失败');
       }
     } catch (error) {
       console.error('背景融合失败:', error);
