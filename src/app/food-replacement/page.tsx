@@ -110,99 +110,88 @@ export default function FoodReplacementPage() {
       const formData = new FormData();
 
       if (isBatchMode) {
-        // 批量模式
-        sourceImages.forEach((file) => {
-          formData.append('sourceImages', file);
-        });
+        // 批量模式: 串行处理每张图片（避免响应体过大）
+        console.log(`开始批量处理 ${sourceImages.length} 张图片（串行模式）`);
 
-        if (selectedTemplate) {
-          formData.append('targetImageUrl', selectedTemplate.url);
-        } else if (batchTargetImage) {
-          formData.append('targetImage', batchTargetImage);
-        }
+        const newResults: FoodReplacementResult[] = [];
+        let successCount = 0;
+        let failedCount = 0;
 
-        const response = await fetch('/api/food-replacement/batch', {
-          method: 'POST',
-          body: formData,
-        });
+        for (let i = 0; i < sourceImages.length; i++) {
+          try {
+            // 更新进度
+            const progress = Math.round(((i + 1) / sourceImages.length) * 100);
+            setJobStatus({
+              id: `batch-${Date.now()}`,
+              status: 'running',
+              progress,
+              result: null,
+            });
 
-        console.log('批量模式API响应状态:', {
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok,
-          headers: Object.fromEntries(response.headers.entries())
-        });
+            console.log(`处理第 ${i + 1}/${sourceImages.length} 张图片: ${sourceImages[i].name}`);
 
-        const data = await response.json();
-        console.log('批量模式API响应数据:', data);
+            // 为每张图片创建单独的请求
+            const singleFormData = new FormData();
+            singleFormData.append('sourceImage', sourceImages[i]);
 
-        if (data.ok) {
-          // 检测是同步结果(Vercel)还是异步任务(本地)
-          if (data.data && Array.isArray(data.data.results)) {
-            // Vercel同步模式: 直接显示结果
-            console.log('检测到Vercel同步模式响应，直接处理结果');
-            setIsProcessing(false);
+            if (selectedTemplate) {
+              singleFormData.append('targetImageUrl', selectedTemplate.url);
+            } else if (batchTargetImage) {
+              singleFormData.append('targetImage', batchTargetImage);
+            }
 
-            // 转换结果为 FoodReplacementResult 格式
-            const newResults: FoodReplacementResult[] = data.data.results
-              .filter((result: any) => result.imageUrl && !result.error)
-              .map((result: any, index: number) => ({
-                id: `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 15)}`,
-                imageUrl: result.imageUrl,
-                width: result.width,
-                height: result.height,
-                sourceImageIndex: result.sourceImageIndex !== undefined ? result.sourceImageIndex : index,
-                sourceFileName: sourceImages[result.sourceImageIndex || index]?.name,
+            // 调用单张处理API
+            const response = await fetch('/api/food-replacement', {
+              method: 'POST',
+              body: singleFormData,
+            });
+
+            const data = await response.json();
+
+            if (data.ok && data.data && data.data.imageUrl) {
+              // 处理成功
+              const result: FoodReplacementResult = {
+                id: `${Date.now()}-${i}-${Math.random().toString(36).substring(2, 15)}`,
+                imageUrl: data.data.imageUrl,
+                width: data.data.width,
+                height: data.data.height,
+                sourceImageIndex: i,
+                sourceFileName: sourceImages[i].name,
                 processedAt: new Date().toISOString(),
-              }));
+              };
 
-            console.log('转换后的结果:', newResults);
+              newResults.push(result);
+              successCount++;
 
-            // 添加到completedResults
-            addResults(newResults);
+              // 实时添加到结果列表
+              addResults([result]);
 
-            // 设置最后一个结果的状态用于显示
-            if (newResults.length > 0) {
-              setJobStatus({
-                id: 'vercel-batch-completed',
-                status: 'succeeded',
-                progress: 100,
-                result: {
-                  imageUrl: newResults[newResults.length - 1].imageUrl,
-                  width: newResults[newResults.length - 1].width,
-                  height: newResults[newResults.length - 1].height,
-                },
-              });
+              console.log(`✓ 第 ${i + 1} 张处理成功`);
+            } else {
+              throw new Error(data.error || '处理失败');
             }
 
-            // 报告失败的图片
-            const failedCount = data.data.results.length - newResults.length;
-            if (failedCount > 0) {
-              data.data.results.forEach((result: any, index: number) => {
-                if (result.error) {
-                  console.error(`源图片 ${index + 1} 处理失败:`, result.error);
-                }
-              });
-            }
-
-            alert(`批量处理完成! 成功: ${newResults.length}/${sourceImages.length}${failedCount > 0 ? `, 失败: ${failedCount}` : ''}`);
-          } else if (data.jobId) {
-            // 本地异步模式: 轮询作业状态
-            console.log('检测到本地异步模式，开始轮询作业:', data.jobId);
-            const fileNames = sourceImages.map(file => file.name);
-            pollJobStatus(data.jobId, fileNames);
-          } else {
-            throw new Error('无效的API响应格式');
+          } catch (error) {
+            failedCount++;
+            console.error(`✗ 第 ${i + 1} 张处理失败:`, error);
+            // 继续处理下一张
           }
-        } else {
-          console.error('批量模式API返回错误:', {
-            error: data.error,
-            message: data.message,
-            details: data.details,
-            fullResponse: data
-          });
-          throw new Error(data.error || data.message || `批量处理失败: HTTP ${response.status}`);
         }
+
+        // 所有图片处理完成
+        setIsProcessing(false);
+        setJobStatus({
+          id: 'batch-completed',
+          status: 'succeeded',
+          progress: 100,
+          result: newResults.length > 0 ? {
+            imageUrl: newResults[newResults.length - 1].imageUrl,
+            width: newResults[newResults.length - 1].width,
+            height: newResults[newResults.length - 1].height,
+          } : null,
+        });
+
+        alert(`批量处理完成!\n成功: ${successCount}/${sourceImages.length}${failedCount > 0 ? `\n失败: ${failedCount}` : ''}`);
       } else {
         // 单张模式
         if (sourceImage) {
