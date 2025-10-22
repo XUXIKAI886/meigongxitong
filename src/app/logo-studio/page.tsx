@@ -78,10 +78,10 @@ export default function LogoStudioPage() {
   const [posterTemplate, setPosterTemplate] = useState<LogoTemplate | null>(null);
   const [avatarTemplate, setAvatarTemplate] = useState<LogoTemplate | null>(null);
 
-  // 分类选择状态
-  const [storefrontCategory, setStorefrontCategory] = useState<string>('');
-  const [posterCategory, setPosterCategory] = useState<string>('');
-  const [avatarCategory, setAvatarCategory] = useState<string>('');
+  // 分类选择状态 - 默认选中"通用"
+  const [storefrontCategory, setStorefrontCategory] = useState<string>('通用');
+  const [posterCategory, setPosterCategory] = useState<string>('通用');
+  const [avatarCategory, setAvatarCategory] = useState<string>('通用');
 
   // 风格店铺名状态（用于精确替换）
   const [templateStoreName, setTemplateStoreName] = useState<string>('');
@@ -89,7 +89,7 @@ export default function LogoStudioPage() {
   // 风格排序函数 - 按风格编号数值排序
   const sortTemplatesByNumber = (templates: LogoTemplate[]) => {
     return [...templates].sort((a, b) => {
-      // 从 ID 中提取数字，格式: "avatar-通用风格-1.png" 或 "storefront-通用风格-15.png"
+      // 从 ID 中提取数字，格式: "avatar-通用-1.png" 或 "storefront-通用-15.png"
       const getNumber = (id: string) => {
         const match = id.match(/-(\d+)\.(png|jpg|jpeg)$/i);
         return match ? parseInt(match[1], 10) : 0;
@@ -157,27 +157,27 @@ export default function LogoStudioPage() {
   // 硬编码的风格店铺名映射表
   // 格式：'分类-风格编号': '店铺名'
   const templateStoreNameMap: Record<string, string> = {
-    // 通用风格（适用于头像、店招、海报）
-    '通用风格-1': '炒鸡大排档',
-    '通用风格-2': '锦膳私厨',
-    '通用风格-3': '川乐汇',
-    '通用风格-4': '卡门手工汉堡',
-    '通用风格-5': '安徽板面',
-    '通用风格-6': '霸王牛肉粉',
-    '通用风格-7': '超下饭的大块牛肉饭',
-    '通用风格-8': '炒粉炒饭',
-    '通用风格-9': '风味炸串',
-    '通用风格-10': '广粤港式烧腊',
-    '通用风格-11': '郝叔串串香',
-    '通用风格-12': '胡记江西小炒',
-    '通用风格-13': '胡記油炸串串',
-    '通用风格-14': '乐盛椒麻鸡',
-    '通用风格-15': '刘记手工鲜饺',
-    '通用风格-16': '兴客轩',
-    '通用风格-17': '遇来香烧烤',
-    '通用风格-18': '湘味餐馆',
-    '通用风格-19': '米煲正煲仔饭',
-    '通用风格-20': '百草鲜卤铺',
+    // 通用（适用于头像、店招、海报）
+    '通用-1': '炒鸡大排档',
+    '通用-2': '锦膳私厨',
+    '通用-3': '川乐汇',
+    '通用-4': '卡门手工汉堡',
+    '通用-5': '安徽板面',
+    '通用-6': '霸王牛肉粉',
+    '通用-7': '超下饭的大块牛肉饭',
+    '通用-8': '炒粉炒饭',
+    '通用-9': '风味炸串',
+    '通用-10': '广粤港式烧腊',
+    '通用-11': '郝叔串串香',
+    '通用-12': '胡记江西小炒',
+    '通用-13': '胡記油炸串串',
+    '通用-14': '乐盛椒麻鸡',
+    '通用-15': '刘记手工鲜饺',
+    '通用-16': '兴客轩',
+    '通用-17': '遇来香烧烤',
+    '通用-18': '湘味餐馆',
+    '通用-19': '米煲正煲仔饭',
+    '通用-20': '百草鲜卤铺',
 
     // 其他分类的风格可以继续添加
     // '包子-1': '店铺名',
