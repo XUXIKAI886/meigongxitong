@@ -5,11 +5,11 @@ export function useTemplates() {
   const [meituanTemplates, setMeituanTemplates] = useState<Template[]>([]);
   const [elemeTemplates, setElemeTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
-  const [showTemplateSelector, setShowTemplateSelector] = useState(true); // 默认显示模板选择器
+  const [showTemplateSelector, setShowTemplateSelector] = useState(true); // 默认显示风格选择器
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [currentPlatform, setCurrentPlatform] = useState<'meituan' | 'eleme'>('meituan'); // 当前选择的平台
 
-  // 加载美团模板列表
+  // 加载美团风格列表
   const loadMeituanTemplates = useCallback(async () => {
     setCurrentPlatform('meituan'); // 设置当前平台
 
@@ -24,13 +24,13 @@ export function useTemplates() {
       const data = await response.json();
       setMeituanTemplates(data.templates || []);
     } catch (error) {
-      console.error('加载美团模板失败:', error);
+      console.error('加载美团风格失败:', error);
     } finally {
       setLoadingTemplates(false);
     }
   }, [meituanTemplates.length]);
 
-  // 加载饿了么模板列表
+  // 加载饿了么风格列表
   const loadElemeTemplates = useCallback(async () => {
     setCurrentPlatform('eleme'); // 设置当前平台
 
@@ -45,18 +45,18 @@ export function useTemplates() {
       const data = await response.json();
       setElemeTemplates(data.templates || []);
     } catch (error) {
-      console.error('加载饿了么模板失败:', error);
+      console.error('加载饿了么风格失败:', error);
     } finally {
       setLoadingTemplates(false);
     }
   }, [elemeTemplates.length]);
 
-  // 选择模板
+  // 选择风格
   const selectTemplate = useCallback((template: Template) => {
     setSelectedTemplate(template);
   }, []);
 
-  // 清除模板选择
+  // 清除风格选择
   const clearTemplateSelection = useCallback(() => {
     setSelectedTemplate(null);
   }, []);

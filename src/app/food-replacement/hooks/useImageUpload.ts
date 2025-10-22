@@ -73,7 +73,7 @@ export function useImageUpload() {
     setSourceImagePreviews(newPreviews);
   }, [sourceImages, sourceImagePreviews]);
 
-  // 设置模板预览
+  // 设置风格预览
   const setTemplatePreview = useCallback((templateUrl: string, isBatchMode: boolean) => {
     if (isBatchMode) {
       setBatchTargetImagePreview(templateUrl);

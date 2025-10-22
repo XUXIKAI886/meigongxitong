@@ -31,7 +31,7 @@ export default function TemplateSelector({
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <SparklesIcon className="w-5 h-5" />
-              选择食物模板
+              选择食物风格
             </CardTitle>
             <Button
               variant="ghost"
@@ -45,14 +45,14 @@ export default function TemplateSelector({
         <CardContent className="overflow-y-auto max-h-[70vh]">
           {templates.length === 0 && !loadingTemplates ? (
             <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">暂无模板，点击加载</p>
+              <p className="text-gray-500 mb-4">暂无风格，点击加载</p>
               <Button onClick={onLoadTemplates}>
-                加载模板
+                加载风格
               </Button>
             </div>
           ) : loadingTemplates ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">正在加载模板...</p>
+              <p className="text-gray-500">正在加载风格...</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

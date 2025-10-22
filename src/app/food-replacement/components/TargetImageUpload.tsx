@@ -22,7 +22,7 @@ interface TargetImageUploadProps {
     getInputProps: () => DropzoneInputProps;
     isDragActive: boolean;
   };
-  // 模板相关
+  // 风格相关
   selectedTemplate?: Template | null;
   showTemplateSelector: boolean;
   meituanTemplates: Template[];
@@ -60,7 +60,7 @@ export default function TargetImageUpload({
   const currentPreview = isBatchMode ? batchTargetImagePreview : targetImagePreview;
   const currentDropzone = isBatchMode ? batchTargetDropzone : targetDropzone;
 
-  // 根据当前平台确定显示哪个平台的模板
+  // 根据当前平台确定显示哪个平台的风格
   const currentTemplates = currentPlatform === 'eleme' ? elemeTemplates : meituanTemplates;
 
   return (
@@ -90,7 +90,7 @@ export default function TargetImageUpload({
               <rect width="200" height="200" rx="45" fill="#FFD100"/>
               <text x="100" y="135" fontSize="85" fontWeight="bold" textAnchor="middle" fill="#000">美团</text>
             </svg>
-            美团模板
+            美团风格
           </button>
           <button
             onClick={() => {
@@ -110,7 +110,7 @@ export default function TargetImageUpload({
               <path d="M 85 85 Q 100 70, 115 85" stroke="white" strokeWidth="10" fill="none" strokeLinecap="round"/>
               <circle cx="130" cy="95" r="5" fill="white"/>
             </svg>
-            饿了么模板
+            饿了么风格
           </button>
           <button
             onClick={() => onToggleTemplateSelector(false)}
@@ -126,17 +126,17 @@ export default function TargetImageUpload({
         </div>
 
         {showTemplateSelector ? (
-          // 模板选择器
+          // 风格选择器
           <div>
             {selectedTemplate ? (
               <div className="text-center">
                 <img
                   src={selectedTemplate.url}
-                  alt={`模板: ${selectedTemplate.name}`}
+                  alt={`风格: ${selectedTemplate.name}`}
                   className="mx-auto max-h-32 rounded mb-2"
                 />
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">已选择模板: {selectedTemplate.name}</p>
+                  <p className="text-sm text-gray-600">已选择风格: {selectedTemplate.name}</p>
                   <button
                     onClick={() => {
                       onClearTemplate();
@@ -154,7 +154,7 @@ export default function TargetImageUpload({
                 {loadingTemplates ? (
                   <div className="text-center py-8">
                     <Loader2 className="mx-auto h-8 w-8 text-orange-500 animate-spin mb-2" />
-                    <p className="text-sm text-gray-600">加载模板中...</p>
+                    <p className="text-sm text-gray-600">加载风格中...</p>
                   </div>
                 ) : currentTemplates.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-2">
@@ -182,7 +182,7 @@ export default function TargetImageUpload({
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <p className="text-sm text-gray-500">暂无可用模板</p>
+                    <p className="text-sm text-gray-500">暂无可用风格</p>
                   </div>
                 )}
               </div>

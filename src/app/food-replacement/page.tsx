@@ -65,7 +65,7 @@ export default function FoodReplacementPage() {
     setSourceImagePreviews,
   } = useImageUpload();
 
-  // 页面加载时自动加载美团模板
+  // 页面加载时自动加载美团风格
   useEffect(() => {
     loadMeituanTemplates();
   }, [loadMeituanTemplates]);
@@ -79,13 +79,13 @@ export default function FoodReplacementPage() {
     setSourceImagePreviews([]);
   };
 
-  // 模板选择处理
+  // 风格选择处理
   const handleTemplateSelect = (template: any) => {
     selectTemplate(template);
     setTemplatePreview(template.url, isBatchMode);
   };
 
-  // 切换模板选择器显示（不再在这里加载模板，由按钮单独控制）
+  // 切换风格选择器显示（不再在这里加载风格，由按钮单独控制）
   const handleToggleTemplateSelector = (show: boolean) => {
     setShowTemplateSelector(show);
   };
