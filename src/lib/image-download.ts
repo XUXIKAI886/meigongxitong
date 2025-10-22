@@ -383,6 +383,149 @@ export async function downloadCroppedImage(
 }
 
 /**
+ * 批量下载远程图片 - 只在第一次选择下载目录
+ *
+ * @param images - 图片列表 [{url: string, filename: string}]
+ * @returns Promise<{success: number, failed: number}> - 下载统计
+ */
+export async function downloadRemoteImagesBatch(
+  images: Array<{ url: string; filename: string }>
+): Promise<{ success: number; failed: number }> {
+  if (images.length === 0) {
+    return { success: 0, failed: 0 };
+  }
+
+  let success = 0;
+  let failed = 0;
+
+  if (isTauriEnvironment()) {
+    // Tauri 环境 - 只在第一次选择保存目录
+    try {
+      // 1. 第一次选择保存目录（选择文件夹）
+      console.log('🖼️ [Tauri 批量下载] 请选择保存目录');
+
+      const folderPath = await (window as any).__TAURI__.core.invoke('plugin:dialog|open', {
+        options: {
+          title: '选择批量保存目录',
+          directory: true,  // 选择文件夹而不是文件
+          multiple: false
+        }
+      });
+
+      if (!folderPath) {
+        console.log('⚠️ 用户取消了批量下载');
+        return { success: 0, failed: 0 };
+      }
+
+      console.log('📁 选择的保存目录:', folderPath);
+
+      // 2. 循环保存所有图片到选定的目录
+      for (let i = 0; i < images.length; i++) {
+        const { url, filename } = images[i];
+        console.log(`📥 [${i + 1}/${images.length}] 下载: ${filename}`);
+
+        try {
+          // 2.1 获取图片数据
+          const response = await fetch(url);
+          const blob = await response.blob();
+
+          // 2.2 转换为 Data URL
+          const reader = new FileReader();
+          const dataUrl = await new Promise<string>((resolve) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+
+          // 2.3 将 Base64 转换为二进制数据
+          let binaryData: string;
+          if (dataUrl.startsWith('data:image')) {
+            const base64Data = dataUrl.split(',')[1];
+            binaryData = atob(base64Data);
+          } else {
+            throw new Error('不支持的图片格式');
+          }
+
+          // 2.4 转换为字节数组
+          const bytes = new Uint8Array(binaryData.length);
+          for (let j = 0; j < binaryData.length; j++) {
+            bytes[j] = binaryData.charCodeAt(j);
+          }
+
+          // 2.5 构建完整文件路径（确保路径分隔符正确）
+          const fullPath = `${folderPath}\\${filename}`;
+          console.log('💾 保存到:', fullPath);
+
+          // 2.6 写入文件
+          await (window as any).__TAURI__.core.invoke(
+            'plugin:fs|write_file',
+            bytes,
+            {
+              headers: {
+                path: encodeURIComponent(fullPath),
+                options: JSON.stringify({})
+              }
+            }
+          );
+
+          console.log(`✅ [${i + 1}/${images.length}] 保存成功: ${filename}`);
+          success++;
+
+          // 添加小延迟避免过快处理
+          if (i < images.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+
+        } catch (error) {
+          console.error(`❌ [${i + 1}/${images.length}] 保存失败:`, error);
+          failed++;
+        }
+      }
+
+      // 3. 显示批量下载结果
+      alert(
+        `批量下载完成!\n` +
+        `保存位置: ${folderPath}\n` +
+        `成功: ${success}/${images.length}\n` +
+        (failed > 0 ? `失败: ${failed}` : '')
+      );
+
+      return { success, failed };
+
+    } catch (error) {
+      console.error('❌ [Tauri 批量下载] 失败:', error);
+      alert('批量下载失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      return { success, failed };
+    }
+
+  } else {
+    // Web 浏览器环境 - 逐个下载
+    console.log('🌐 [Web 批量下载] 开始逐个下载');
+
+    for (let i = 0; i < images.length; i++) {
+      const { url, filename } = images[i];
+      try {
+        const result = await downloadRemoteImage(url, filename);
+        if (result) {
+          success++;
+        } else {
+          failed++;
+        }
+
+        // 添加延迟避免浏览器限制
+        if (i < images.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      } catch (error) {
+        console.error(`下载失败 [${i + 1}/${images.length}]:`, error);
+        failed++;
+      }
+    }
+
+    return { success, failed };
+  }
+}
+
+/**
  * 测试 Tauri 保存对话框（用于调试）
  */
 export async function testTauriSaveDialog(): Promise<void> {

@@ -145,16 +145,29 @@ export default function PictureWallPage() {
     }
   };
 
+  // 批量下载所有图片 - Tauri环境只弹一次对话框
   const downloadAll = async () => {
-    if (jobStatus?.result?.images) {
-      for (let index = 0; index < jobStatus.result.images.length; index++) {
-        const image = jobStatus.result.images[index];
-        await downloadImage(image.imageUrl, `picture-wall-${index + 1}.png`);
-        // 添加小延迟避免浏览器限制并发下载
-        if (index < jobStatus.result.images.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-      }
+    if (!jobStatus?.result?.images || jobStatus.result.images.length === 0) {
+      alert('没有可下载的图片');
+      return;
+    }
+
+    try {
+      const { downloadRemoteImagesBatch } = await import('@/lib/image-download');
+
+      // 准备批量下载的图片列表
+      const images = jobStatus.result.images.map((image, index) => ({
+        url: image.imageUrl,
+        filename: `picture-wall-${index + 1}.png`
+      }));
+
+      // 调用批量下载函数（Tauri环境只弹一次文件夹选择框）
+      const { success, failed } = await downloadRemoteImagesBatch(images);
+
+      console.log(`批量下载完成: 成功 ${success}/${images.length}, 失败 ${failed}`);
+    } catch (error) {
+      console.error('批量下载失败:', error);
+      alert('批量下载失败: ' + (error instanceof Error ? error.message : '未知错误'));
     }
   };
 

@@ -446,20 +446,31 @@ export default function BackgroundFusionPage() {
     }
   };
 
-  // 批量下载所有图片
+  // 批量下载所有图片 - Tauri环境只弹一次对话框
   const downloadAllImages = async () => {
     const successResults = [...batchResults, ...historicalBatchResults].filter(result => result.status === 'success');
 
-    for (let index = 0; index < successResults.length; index++) {
-      const result = successResults[index];
-      // 使用原始文件名或生成默认名称
-      const filename = result.sourceFileName || `background-fusion-${index + 1}.jpg`;
-      console.log(`批量下载 - 第${index + 1}张图片，使用文件名:`, filename);
-      await downloadImage(result.imageUrl, filename);
-      // 添加小延迟避免浏览器限制并发下载
-      if (index < successResults.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
+    if (successResults.length === 0) {
+      alert('没有可下载的图片');
+      return;
+    }
+
+    try {
+      const { downloadRemoteImagesBatch } = await import('@/lib/image-download');
+
+      // 准备批量下载的图片列表
+      const images = successResults.map((result, index) => ({
+        url: result.imageUrl,
+        filename: result.sourceFileName || `background-fusion-${index + 1}.jpg`
+      }));
+
+      // 调用批量下载函数（Tauri环境只弹一次文件夹选择框）
+      const { success, failed } = await downloadRemoteImagesBatch(images);
+
+      console.log(`批量下载完成: 成功 ${success}/${images.length}, 失败 ${failed}`);
+    } catch (error) {
+      console.error('批量下载失败:', error);
+      alert('批量下载失败: ' + (error instanceof Error ? error.message : '未知错误'));
     }
   };
 

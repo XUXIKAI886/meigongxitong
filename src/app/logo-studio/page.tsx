@@ -1252,11 +1252,23 @@ export default function LogoStudioPage() {
               <div className="flex justify-center gap-4">
                 <Button
                   onClick={async () => {
-                    await Promise.all([
-                      downloadImage(storefrontResult!, `${storeName}-店招设计.png`),
-                      downloadImage(posterResult!, `${storeName}-海报设计.png`),
-                      downloadImage(avatarResult!, `${storeName}-头像设计.png`)
-                    ]);
+                    try {
+                      const { downloadRemoteImagesBatch } = await import('@/lib/image-download');
+
+                      // 准备批量下载的图片列表
+                      const images = [
+                        { url: storefrontResult!, filename: `${storeName}-店招设计.png` },
+                        { url: posterResult!, filename: `${storeName}-海报设计.png` },
+                        { url: avatarResult!, filename: `${storeName}-头像设计.png` }
+                      ];
+
+                      // 调用批量下载函数（Tauri环境只弹一次文件夹选择框）
+                      const { success, failed } = await downloadRemoteImagesBatch(images);
+                      console.log(`批量下载完成: 成功 ${success}/${images.length}, 失败 ${failed}`);
+                    } catch (error) {
+                      console.error('批量下载失败:', error);
+                      alert('批量下载失败: ' + (error instanceof Error ? error.message : '未知错误'));
+                    }
                   }}
                   size="lg"
                   className="bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-white shadow-lg font-semibold transition-all hover:shadow-xl"

@@ -19,28 +19,28 @@ export default function ResultDisplay({ results }: ResultDisplayProps) {
     }
   };
 
-  // 批量下载所有图片
+  // 批量下载所有图片 - Tauri环境只弹一次对话框
   const downloadAllImages = async () => {
     if (results.length === 0) return;
 
     console.log('批量下载 - 所有结果:', results);
 
     try {
-      for (let i = 0; i < results.length; i++) {
-        const result = results[i];
-        let filename = `food-replacement-batch-${i + 1}-${Date.now()}.png`;
-        if (result.sourceFileName) {
-          filename = result.sourceFileName;
-        }
-        await downloadImage(result.imageUrl, filename);
+      const { downloadRemoteImagesBatch } = await import('@/lib/image-download');
 
-        // 添加小延迟避免浏览器限制并发下载
-        if (i < results.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-      }
+      // 准备批量下载的图片列表
+      const images = results.map((result, index) => ({
+        url: result.imageUrl,
+        filename: result.sourceFileName || `food-replacement-batch-${index + 1}-${Date.now()}.png`
+      }));
+
+      // 调用批量下载函数（Tauri环境只弹一次文件夹选择框）
+      const { success, failed } = await downloadRemoteImagesBatch(images);
+
+      console.log(`批量下载完成: 成功 ${success}/${images.length}, 失败 ${failed}`);
     } catch (error) {
       console.error('批量下载失败:', error);
+      alert('批量下载失败: ' + (error instanceof Error ? error.message : '未知错误'));
     }
   };
 
