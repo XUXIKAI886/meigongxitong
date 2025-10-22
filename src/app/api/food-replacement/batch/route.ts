@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ProductRefineApiClient } from '@/lib/api-client';
 import { jobRunner, JobQueue } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
+import { resolveTemplateFromUrl } from '@/lib/template-path';
 import { config } from '@/lib/config';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, mkdir, readFile } from 'fs/promises';
@@ -295,35 +296,27 @@ export async function POST(request: NextRequest) {
       targetImageBuffer = Buffer.from(await targetImageFile.arrayBuffer());
       targetImageType = targetImageFile.type;
     } else {
-      // 使用模板URL - 从文件系统直接读取
+      // 使用模板 URL 时先进行安全校验
       try {
-        // 从URL中提取文件名和平台
-        const urlParts = targetImageUrl.split('/');
-        const filename = decodeURIComponent(urlParts[urlParts.length - 1]);
-
-        // 根据URL路径判断是美团还是饿了么模板
-        const isElemeTemplate = targetImageUrl.includes('/api/eleme-templates/');
-        const templateDir = isElemeTemplate ? '饿了么产品图模板' : '目标图片模板';
-        const templatePath = path.join(process.cwd(), templateDir, filename);
+        const templatePath = resolveTemplateFromUrl(targetImageUrl, [
+          { prefix: '/api/eleme-templates/', rootDir: '����ô��Ʒͼģ��' },
+          { prefix: '/api/templates/', rootDir: 'Ŀ��ͼƬģ��' },
+        ]);
 
         console.log('Batch - Loading template:', {
           url: targetImageUrl,
-          isElemeTemplate,
-          templateDir,
-          filename,
-          fullPath: templatePath
+          templatePath,
         });
 
-        // 检查文件是否存在
         if (!fs.existsSync(templatePath)) {
-          throw new Error(`Template file not found: ${filename} in ${templateDir}`);
+          throw new Error(`Template file not found: ${templatePath}`);
         }
 
-        // 直接从文件系统读取
         targetImageBuffer = await readFile(templatePath);
+        const templateFilename = path.basename(templatePath);
 
         // 从文件名推断文件类型
-        const filenameLower = filename.toLowerCase();
+        const filenameLower = templateFilename.toLowerCase();
         if (filenameLower.includes('.png')) {
           targetImageType = 'image/png';
         } else if (filenameLower.includes('.webp')) {

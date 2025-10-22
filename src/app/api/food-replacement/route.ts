@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ProductRefineApiClient } from '@/lib/api-client';
 import { jobRunner, JobQueue } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
+import { resolveTemplateFromUrl } from '@/lib/template-path';
 import { config } from '@/lib/config';
 import { v4 as uuidv4 } from 'uuid';
-import { writeFile, mkdir, readFile } from 'fs/promises';
-import path from 'path';
+import { readFile } from 'fs/promises';
 import fs from 'fs';
 
 
@@ -273,41 +273,31 @@ export async function POST(request: NextRequest) {
       // 使用上传的文件
       targetImageBuffer = Buffer.from(await targetImage.arrayBuffer());
     } else {
-      // 使用模板URL - 从文件系统直接读取
+      // 使用模板 URL 时先进行安全校验
       try {
-        // 从URL中提取文件名和平台
-        const urlParts = targetImageUrl.split('/');
-        const filename = decodeURIComponent(urlParts[urlParts.length - 1]);
-
-        // 根据URL路径判断是美团还是饿了么模板
-        const isElemeTemplate = targetImageUrl.includes('/api/eleme-templates/');
-        const templateDir = isElemeTemplate ? '饿了么产品图模板' : '目标图片模板';
-        const templatePath = path.join(process.cwd(), templateDir, filename);
+        const templatePath = resolveTemplateFromUrl(targetImageUrl, [
+          { prefix: '/api/eleme-templates/', rootDir: '����ô��Ʒͼģ��' },
+          { prefix: '/api/templates/', rootDir: 'Ŀ��ͼƬģ��' },
+        ]);
 
         console.log('Loading template:', {
           url: targetImageUrl,
-          isElemeTemplate,
-          templateDir,
-          filename,
-          fullPath: templatePath
+          templatePath,
         });
 
-        // 检查文件是否存在
         if (!fs.existsSync(templatePath)) {
-          throw new Error(`Template file not found: ${filename} in ${templateDir}`);
+          throw new Error(`Template file not found: ${templatePath}`);
         }
 
-        // 直接从文件系统读取
         targetImageBuffer = await readFile(templatePath);
       } catch (error) {
         console.error('Failed to load template image:', error);
         return NextResponse.json(
-          { error: 'Failed to load template image' },
+          { error: '模板路径不合法或文件不存在' },
           { status: 400 }
         );
       }
     }
-
     const payload = {
       sourceImageBuffer: sourceImageBuffer.toString('base64'), // base64 string
       targetImageBuffer: targetImageBuffer.toString('base64'), // base64 string
