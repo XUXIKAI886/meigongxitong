@@ -63,7 +63,7 @@ export default function LogoStudioPage() {
   const [avatarStep1Generating, setAvatarStep1Generating] = useState(false);
   const [avatarStep2Generating, setAvatarStep2Generating] = useState(false);
 
-  // 三种类型的模板状态
+  // 三种类型的风格状态
   const [avatarTemplateCategories, setAvatarTemplateCategories] = useState<LogoTemplateCategory[]>([]);
   const [storefrontTemplateCategories, setStorefrontTemplateCategories] = useState<LogoTemplateCategory[]>([]);
   const [posterTemplateCategories, setPosterTemplateCategories] = useState<LogoTemplateCategory[]>([]);
@@ -73,7 +73,7 @@ export default function LogoStudioPage() {
   const [dishImage, setDishImage] = useState<File | null>(null);
   const [dishImagePreview, setDishImagePreview] = useState<string>('');
 
-  // 三个模板选择
+  // 三个风格选择
   const [storefrontTemplate, setStorefrontTemplate] = useState<LogoTemplate | null>(null);
   const [posterTemplate, setPosterTemplate] = useState<LogoTemplate | null>(null);
   const [avatarTemplate, setAvatarTemplate] = useState<LogoTemplate | null>(null);
@@ -83,13 +83,13 @@ export default function LogoStudioPage() {
   const [posterCategory, setPosterCategory] = useState<string>('');
   const [avatarCategory, setAvatarCategory] = useState<string>('');
 
-  // 模板店铺名状态（用于精确替换）
+  // 风格店铺名状态（用于精确替换）
   const [templateStoreName, setTemplateStoreName] = useState<string>('');
 
-  // 模板排序函数 - 按模板编号数值排序
+  // 风格排序函数 - 按风格编号数值排序
   const sortTemplatesByNumber = (templates: LogoTemplate[]) => {
     return [...templates].sort((a, b) => {
-      // 从 ID 中提取数字，格式: "avatar-通用模板-1.png" 或 "storefront-通用模板-15.png"
+      // 从 ID 中提取数字，格式: "avatar-通用风格-1.png" 或 "storefront-通用风格-15.png"
       const getNumber = (id: string) => {
         const match = id.match(/-(\d+)\.(png|jpg|jpeg)$/i);
         return match ? parseInt(match[1], 10) : 0;
@@ -98,12 +98,12 @@ export default function LogoStudioPage() {
     });
   };
 
-  // 加载模板分类
+  // 加载风格分类
   useEffect(() => {
     const loadTemplates = async () => {
       setLoadingTemplates(true);
       try {
-        // 并行加载三种类型的模板
+        // 并行加载三种类型的风格
         const [avatarResponse, storefrontResponse, posterResponse] = await Promise.all([
           fetch('/api/logo-templates?type=avatar'),
           fetch('/api/logo-templates?type=storefront'),
@@ -118,21 +118,21 @@ export default function LogoStudioPage() {
 
         if (avatarData.success) {
           setAvatarTemplateCategories(avatarData.categories);
-          console.log(`加载了 ${avatarData.total} 个头像模板，分为 ${avatarData.categories.length} 个分类`);
+          console.log(`加载了 ${avatarData.total} 个头像风格，分为 ${avatarData.categories.length} 个分类`);
         }
 
         if (storefrontData.success) {
           setStorefrontTemplateCategories(storefrontData.categories);
-          console.log(`加载了 ${storefrontData.total} 个店招模板，分为 ${storefrontData.categories.length} 个分类`);
+          console.log(`加载了 ${storefrontData.total} 个店招风格，分为 ${storefrontData.categories.length} 个分类`);
         }
 
         if (posterData.success) {
           setPosterTemplateCategories(posterData.categories);
-          console.log(`加载了 ${posterData.total} 个海报模板，分为 ${posterData.categories.length} 个分类`);
+          console.log(`加载了 ${posterData.total} 个海报风格，分为 ${posterData.categories.length} 个分类`);
         }
 
       } catch (error) {
-        console.error('加载模板失败:', error);
+        console.error('加载风格失败:', error);
       } finally {
         setLoadingTemplates(false);
       }
@@ -154,38 +154,38 @@ export default function LogoStudioPage() {
     }
   };
 
-  // 硬编码的模板店铺名映射表
-  // 格式：'分类-模板编号': '店铺名'
+  // 硬编码的风格店铺名映射表
+  // 格式：'分类-风格编号': '店铺名'
   const templateStoreNameMap: Record<string, string> = {
-    // 通用模板（适用于头像、店招、海报）
-    '通用模板-1': '炒鸡大排档',
-    '通用模板-2': '锦膳私厨',
-    '通用模板-3': '川乐汇',
-    '通用模板-4': '卡门手工汉堡',
-    '通用模板-5': '安徽板面',
-    '通用模板-6': '霸王牛肉粉',
-    '通用模板-7': '超下饭的大块牛肉饭',
-    '通用模板-8': '炒粉炒饭',
-    '通用模板-9': '风味炸串',
-    '通用模板-10': '广粤港式烧腊',
-    '通用模板-11': '郝叔串串香',
-    '通用模板-12': '胡记江西小炒',
-    '通用模板-13': '胡記油炸串串',
-    '通用模板-14': '乐盛椒麻鸡',
-    '通用模板-15': '刘记手工鲜饺',
-    '通用模板-16': '兴客轩',
-    '通用模板-17': '遇来香烧烤',
-    '通用模板-18': '湘味餐馆',
-    '通用模板-19': '米煲正煲仔饭',
-    '通用模板-20': '百草鲜卤铺',
+    // 通用风格（适用于头像、店招、海报）
+    '通用风格-1': '炒鸡大排档',
+    '通用风格-2': '锦膳私厨',
+    '通用风格-3': '川乐汇',
+    '通用风格-4': '卡门手工汉堡',
+    '通用风格-5': '安徽板面',
+    '通用风格-6': '霸王牛肉粉',
+    '通用风格-7': '超下饭的大块牛肉饭',
+    '通用风格-8': '炒粉炒饭',
+    '通用风格-9': '风味炸串',
+    '通用风格-10': '广粤港式烧腊',
+    '通用风格-11': '郝叔串串香',
+    '通用风格-12': '胡记江西小炒',
+    '通用风格-13': '胡記油炸串串',
+    '通用风格-14': '乐盛椒麻鸡',
+    '通用风格-15': '刘记手工鲜饺',
+    '通用风格-16': '兴客轩',
+    '通用风格-17': '遇来香烧烤',
+    '通用风格-18': '湘味餐馆',
+    '通用风格-19': '米煲正煲仔饭',
+    '通用风格-20': '百草鲜卤铺',
 
-    // 其他分类的模板可以继续添加
+    // 其他分类的风格可以继续添加
     // '包子-1': '店铺名',
     // '煲类砂锅-1': '店铺名',
     // ...
   };
 
-  // 处理模板选择（根据类型）
+  // 处理风格选择（根据类型）
   const handleTemplateSelect = (template: LogoTemplate, type: 'storefront' | 'poster' | 'avatar') => {
     switch (type) {
       case 'storefront':
@@ -199,20 +199,20 @@ export default function LogoStudioPage() {
         break;
     }
 
-    // 从模板ID中提取分类和编号，自动填写对应的店铺名
+    // 从风格ID中提取分类和编号，自动填写对应的店铺名
     // template.id格式: "avatar-冒菜-1.png" 或 "storefront-冒菜-1.png"
     const idParts = template.id.split('-');
     if (idParts.length >= 3) {
       const category = idParts[1]; // 分类名，如"冒菜"
-      const templateNumber = idParts[2].replace(/\.(png|jpg|jpeg)$/i, ''); // 模板编号，如"1"
+      const templateNumber = idParts[2].replace(/\.(png|jpg|jpeg)$/i, ''); // 风格编号，如"1"
       const mapKey = `${category}-${templateNumber}`;
 
       const storeName = templateStoreNameMap[mapKey];
       if (storeName) {
         setTemplateStoreName(storeName);
-        console.log(`自动填写模板店铺名: ${mapKey} -> ${storeName}`);
+        console.log(`自动填写风格店铺名: ${mapKey} -> ${storeName}`);
       } else {
-        console.log(`未找到模板店铺名映射: ${mapKey}`);
+        console.log(`未找到风格店铺名映射: ${mapKey}`);
       }
     }
   };
@@ -226,7 +226,7 @@ export default function LogoStudioPage() {
         return false;
       }
       if (!templateStoreName.trim()) {
-        alert('请填写模板店铺名');
+        alert('请填写风格店铺名');
         return false;
       }
     }
@@ -239,24 +239,24 @@ export default function LogoStudioPage() {
     return true;
   };
 
-  // 验证特定类型的模板
+  // 验证特定类型的风格
   const validateTemplateType = (type: 'avatar' | 'storefront' | 'poster') => {
     switch (type) {
       case 'avatar':
         if (!avatarTemplate) {
-          alert('请选择头像模板');
+          alert('请选择头像风格');
           return false;
         }
         break;
       case 'storefront':
         if (!storefrontTemplate) {
-          alert('请选择店招模板');
+          alert('请选择店招风格');
           return false;
         }
         break;
       case 'poster':
         if (!posterTemplate) {
-          alert('请选择海报模板');
+          alert('请选择海报风格');
           return false;
         }
         break;
@@ -303,7 +303,7 @@ export default function LogoStudioPage() {
       return;
     }
 
-    // 验证特定模板
+    // 验证特定风格
     if (!validateTemplateType(type)) {
       return;
     }
@@ -327,7 +327,7 @@ export default function LogoStudioPage() {
       // 添加主推菜品图
       formData.append('dishImage', dishImage!);
 
-      // 根据类型添加对应的模板文件
+      // 根据类型添加对应的风格文件
       let template: LogoTemplate;
       switch (type) {
         case 'avatar':
@@ -402,7 +402,7 @@ export default function LogoStudioPage() {
       return;
     }
     if (!avatarTemplate) {
-      alert('请选择头像模板');
+      alert('请选择头像风格');
       return;
     }
 
@@ -421,7 +421,7 @@ export default function LogoStudioPage() {
       // 添加主推菜品图
       formData.append('dishImage', dishImage);
 
-      // 添加头像模板
+      // 添加头像风格
       const avatarResponse = await fetch(avatarTemplate.url);
       const avatarBlob = await avatarResponse.blob();
       formData.append('avatarTemplate', avatarBlob, `avatar-${avatarTemplate.id}.png`);
@@ -468,7 +468,7 @@ export default function LogoStudioPage() {
       return;
     }
     if (!templateStoreName.trim()) {
-      alert('请填写模板店铺名');
+      alert('请填写风格店铺名');
       return;
     }
 
@@ -486,7 +486,7 @@ export default function LogoStudioPage() {
       // 步骤2也需要上传菜品图（即使不使用，也是为了通过后端验证）
       formData.append('dishImage', dishImage!);
 
-      // 步骤2也需要上传模板（即使不使用，也是为了通过后端验证）
+      // 步骤2也需要上传风格（即使不使用，也是为了通过后端验证）
       const avatarResponse = await fetch(avatarTemplate!.url);
       const avatarBlob = await avatarResponse.blob();
       formData.append('avatarTemplate', avatarBlob, `avatar-${avatarTemplate!.id}.png`);
@@ -879,7 +879,7 @@ export default function LogoStudioPage() {
             Logo设计工作室
           </h1>
           <p className="text-xl text-gray-600">
-            选择模板，上传菜品图，AI智能融合生成专业的店招、海报和头像设计
+            选择风格，上传菜品图，AI智能融合生成专业的店招、海报和头像设计
           </p>
         </div>
 
@@ -911,10 +911,10 @@ export default function LogoStudioPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="templateStoreName">模板店铺名 *</Label>
+                    <Label htmlFor="templateStoreName">风格店铺名 *</Label>
                     <Input
                       id="templateStoreName"
-                      placeholder="模板中的店铺名"
+                      placeholder="风格中的店铺名"
                       value={templateStoreName}
                       onChange={(e) => setTemplateStoreName(e.target.value)}
                       className="mt-1"
@@ -922,7 +922,7 @@ export default function LogoStudioPage() {
                   </div>
                 </div>
                 <p className="text-xs text-gray-500">
-                  💡 提示：仔细查看所选模板，准确输入模板中的店铺名文字，AI将进行精确替换
+                  💡 提示：仔细查看所选风格，准确输入风格中的店铺名文字，AI将进行精确替换
                 </p>
               </CardContent>
             </Card>
@@ -935,7 +935,7 @@ export default function LogoStudioPage() {
                   主推菜品图
                 </CardTitle>
                 <CardDescription>
-                  上传您店铺的主推菜品图片，将与模板融合生成
+                  上传您店铺的主推菜品图片，将与风格融合生成
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -969,22 +969,22 @@ export default function LogoStudioPage() {
               </CardContent>
             </Card>
 
-            {/* 模板选择区域 */}
+            {/* 风格选择区域 */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Grid3x3 className="w-5 h-5 mr-2" />
-                  选择设计模板
+                  选择设计风格
                 </CardTitle>
                 <CardDescription>
-                  分别选择店招、海报、头像三种类型的模板
+                  分别选择店招、海报、头像三种类型的风格
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {loadingTemplates ? (
                   <div className="text-center py-8">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <p className="mt-2 text-sm text-gray-600">加载模板中...</p>
+                    <p className="mt-2 text-sm text-gray-600">加载风格中...</p>
                   </div>
                 ) : (
                   <Tabs defaultValue="avatar" className="w-full">
@@ -1000,10 +1000,10 @@ export default function LogoStudioPage() {
                         onChange={(e) => setAvatarCategory(e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                       >
-                        <option value="">请选择头像模板分类...</option>
+                        <option value="">请选择头像风格分类...</option>
                         {avatarTemplateCategories.map((category) => (
                           <option key={category.category} value={category.category}>
-                            {category.categoryDisplayName} ({category.templates.length}个模板)
+                            {category.categoryDisplayName} ({category.templates.length}个风格)
                           </option>
                         ))}
                       </select>
@@ -1041,10 +1041,10 @@ export default function LogoStudioPage() {
                         onChange={(e) => setStorefrontCategory(e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       >
-                        <option value="">请选择店招模板分类...</option>
+                        <option value="">请选择店招风格分类...</option>
                         {storefrontTemplateCategories.map((category) => (
                           <option key={category.category} value={category.category}>
-                            {category.categoryDisplayName} ({category.templates.length}个模板)
+                            {category.categoryDisplayName} ({category.templates.length}个风格)
                           </option>
                         ))}
                       </select>
@@ -1082,10 +1082,10 @@ export default function LogoStudioPage() {
                         onChange={(e) => setPosterCategory(e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
-                        <option value="">请选择海报模板分类...</option>
+                        <option value="">请选择海报风格分类...</option>
                         {posterTemplateCategories.map((category) => (
                           <option key={category.category} value={category.category}>
-                            {category.categoryDisplayName} ({category.templates.length}个模板)
+                            {category.categoryDisplayName} ({category.templates.length}个风格)
                           </option>
                         ))}
                       </select>
@@ -1608,7 +1608,7 @@ export default function LogoStudioPage() {
                                 <div className="flex items-start">
                                   <span className="text-purple-600 mr-2 mt-0.5">✓</span>
                                   <div className="text-sm">
-                                    已使用Gemini API将您的菜品图融合到模板中
+                                    已使用Gemini API将您的菜品图融合到风格中
                                   </div>
                                 </div>
                                 <div className="flex items-start">
@@ -1619,7 +1619,7 @@ export default function LogoStudioPage() {
                                 </div>
                                 <div className="bg-purple-100 bg-opacity-60 p-3 rounded-lg mt-3">
                                   <p className="text-xs text-purple-800 font-medium leading-relaxed">
-                                    💡 步骤1保留了模板原有的店铺名和所有文字，仅替换了食物部分
+                                    💡 步骤1保留了风格原有的店铺名和所有文字，仅替换了食物部分
                                   </p>
                                 </div>
                               </CardContent>
