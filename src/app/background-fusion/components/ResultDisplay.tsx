@@ -6,12 +6,14 @@ interface BatchResult {
   status: 'success' | 'failed';
   imageUrl?: string;
   sourceFileName?: string;
+  width?: number;
+  height?: number;
   error?: string;
 }
 
 interface ResultDisplayProps {
   isBatchMode: boolean;
-  // 单张模式
+  // 单图模式
   result: string | null;
   onDownloadSingle: () => void;
   // 批量模式
@@ -32,7 +34,7 @@ export default function ResultDisplay({
   onClearHistorical,
   onDownloadBatchImage,
 }: ResultDisplayProps) {
-  // 单张模式
+  // 单图模式
   if (!isBatchMode && result) {
     return (
       <Card>
@@ -65,7 +67,7 @@ export default function ResultDisplay({
   // 批量模式
   if (isBatchMode && (batchResults.length > 0 || historicalBatchResults.length > 0)) {
     const allResults = [...batchResults, ...historicalBatchResults];
-    const successCount = allResults.filter(r => r.status === 'success').length;
+    const successCount = allResults.filter((r) => r.status === 'success').length;
 
     return (
       <Card>
@@ -90,7 +92,7 @@ export default function ResultDisplay({
                   className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center text-sm"
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
-                  清除历史
+                  清空历史
                 </button>
               )}
             </div>
@@ -98,38 +100,58 @@ export default function ResultDisplay({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {allResults.map((result, index) => (
-              <div key={index} className="relative">
-                {result.status === 'success' ? (
-                  <div className="relative group">
-                    <img
-                      src={result.imageUrl}
-                      alt={`融合结果 ${index + 1}`}
-                      className="w-full h-32 object-cover rounded border group-hover:border-orange-400 transition-colors"
-                    />
-                    <div className="absolute inset-0 rounded transition-all duration-200 flex items-center justify-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0)' }}>
+            {allResults.map((item, index) => {
+              const aspectRatio =
+                item.width && item.height ? `${item.width} / ${item.height}` : '4 / 3';
+
+              if (item.status !== 'success') {
+                return (
+                  <div
+                    key={index}
+                    className="w-full rounded border border-red-300 bg-red-50 flex items-center justify-center"
+                    style={{ aspectRatio }}
+                  >
+                    <div className="text-center px-2">
+                      <p className="text-red-600 text-sm font-medium">处理失败</p>
+                      <p className="text-red-500 text-xs mt-1">源图片 {item.sourceImageIndex + 1}</p>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={index} className="relative group">
+                  <div className="relative w-full bg-white border rounded overflow-hidden group-hover:border-orange-400 transition-colors">
+                    <div className="relative w-full" style={{ aspectRatio }}>
+                      <img
+                        src={item.imageUrl}
+                        alt={`融合结果 ${index + 1}`}
+                        className="absolute inset-0 w-full h-full object-contain bg-gray-100"
+                      />
+                    </div>
+                    <div className="absolute inset-0 rounded transition-all duration-200 flex items-center justify-center bg-transparent group-hover:bg-black/40">
                       <button
                         onClick={() => {
-                          const filename = result.sourceFileName || `background-fusion-${index + 1}.jpg`;
-                          onDownloadBatchImage(result.imageUrl!, filename, index);
+                          const filename = item.sourceFileName || `background-fusion-${index + 1}.jpg`;
+                          onDownloadBatchImage(item.imageUrl!, filename, index);
                         }}
                         className="bg-green-500 text-white px-3 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         下载
                       </button>
                     </div>
-                    <p className="text-xs text-gray-600 mt-1">源图片 {result.sourceImageIndex + 1}</p>
                   </div>
-                ) : (
-                  <div className="w-full h-32 bg-red-100 border border-red-300 rounded flex items-center justify-center">
-                    <div className="text-center">
-                      <p className="text-red-600 text-sm font-medium">处理失败</p>
-                      <p className="text-red-500 text-xs mt-1">源图片 {result.sourceImageIndex + 1}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  <p className="text-xs text-gray-600 mt-1 flex items-center justify-between">
+                    <span>源图片 {item.sourceImageIndex + 1}</span>
+                    {item.width && item.height && (
+                      <span className="text-[10px] text-gray-400">
+                        {item.width}×{item.height}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -138,3 +160,4 @@ export default function ResultDisplay({
 
   return null;
 }
+
