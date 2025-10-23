@@ -222,12 +222,6 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-        console.error('Failed to load template image:', error);
-        return NextResponse.json(
-          { error: '无法加载模板图片' },
-          { status: 400 }
-        );
-      }
     }
 
     // 优化的背景融合提示词 - 量化版本（与单张处理相同）
