@@ -304,8 +304,8 @@ export async function POST(request: NextRequest) {
       // 使用模板 URL 时先进行安全校验
       try {
         const templatePath = resolveTemplateFromUrl(targetImageUrl, [
-          { prefix: '/api/eleme-templates/', rootDir: '����ô��Ʒͼģ��' },
-          { prefix: '/api/templates/', rootDir: 'Ŀ��ͼƬģ��' },
+          { prefix: '/api/eleme-templates/', rootDir: '饿了么产品图模板' },
+          { prefix: '/api/templates/', rootDir: '目标图片模板' },
         ]);
 
         console.log('Batch - Loading template:', {

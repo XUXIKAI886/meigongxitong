@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
     } else {
       try {
         const templatePath = resolveTemplateFromUrl(targetImageUrl, [
-          { prefix: '/api/eleme-background-templates/', rootDir: '����ô�����ں�' },
+          { prefix: '/api/eleme-background-templates/', rootDir: '饿了么背景融合' },
           { prefix: '/api/background-fusion/templates/', rootDir: 'shiwutihuangongju' },
         ]);
 

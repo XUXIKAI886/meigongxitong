@@ -4,233 +4,333 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-这是一个基于 Next.js 15 + React 19 的 **AI 驱动外卖商家图片设计系统**，提供 8 大核心功能模块：单品图换背景、Logo设计、门头招牌、图片墙、产品精修、食物替换、背景融合、多图融合。
+这是一个基于 Next.js 15 + React 19 的 **AI 驱动外卖商家图片设计系统**，为外卖商家提供6大核心功能：Logo设计工作室、门头招牌替换、图片墙生成、食物替换、背景融合、多图融合。
+
+**技术栈核心**：
+- Next.js 15 (App Router + Turbopack)
+- React 19 + TypeScript
+- Tailwind CSS 4 + Radix UI
+- 多AI模型集成（Gemini API、豆包API）
 
 ## 常用开发命令
 
-### 开发环境
+### 开发与构建
 ```bash
-npm run dev          # 启动开发服务器 (使用 Turbopack)
-npm run build        # 构建生产版本 (使用 Turbopack)
+npm run dev          # 启动开发服务器（Turbopack，端口3000）
+npm run build        # 构建生产版本（Turbopack）
 npm run start        # 启动生产服务器
-npm run lint         # ESLint 代码检查
+npm run lint         # ESLint代码检查
 ```
 
-### 🔧 端口管理规则 (重要!)
-**在任何项目启动开发服务器时，必须遵循以下流程：**
+### 🔧 端口管理规则（Windows环境，重要！）
+在启动开发服务器前必须检查端口占用，避免冲突：
 
-1. **端口检测**：先检查目标端口是否被占用
-   ```bash
-   netstat -ano | findstr :3000  # Windows检查端口占用
-   ```
+```bash
+# 1. 检查端口占用
+netstat -ano | findstr :3000
 
-2. **进程终止**：如果端口被占用，强制终止占用进程
-   ```bash
-   taskkill //F //PID <进程ID>    # Windows终止进程
-   ```
+# 2. 如被占用，终止进程（替换<PID>为实际进程ID）
+taskkill //F //PID <PID>
 
-3. **服务器启动**：清理端口后启动新服务器
-   ```bash
-   npm run dev                    # 启动开发服务器
-   ```
-
-**说明**：这个流程防止了端口冲突导致的服务器启动失败，确保开发环境的稳定性。Claude必须在每次启动服务器前执行这个检查流程。
+# 3. 启动服务器
+npm run dev
+```
 
 ### 环境变量配置
-必须配置的环境变量 (.env.local):
+
+项目使用两套AI API：
+- **Doubao API**：Logo设计、门头招牌、图片墙（`IMAGE_*`变量）
+- **Gemini API**：食物替换、背景融合、产品精修（`GEMINI_*`变量）
+
+必需的环境变量（`.env.local`）：
 ```bash
-# AI API 配置
-IMAGE_API_BASE_URL=your_image_api_url
-IMAGE_API_KEY=your_image_api_key
-IMAGE_MODEL_NAME=your_image_model
-CHAT_API_BASE_URL=your_chat_api_url
-CHAT_API_KEY=your_chat_api_key
-CHAT_MODEL_NAME=your_chat_model
+# Doubao API配置
+IMAGE_API_BASE_URL=https://jeniya.top/v1/images/generations
+IMAGE_MODEL_NAME=doubao-seedream-4-0-250828
+IMAGE_API_KEY=your_doubao_api_key
+
+# Gemini API配置（统一端点）
+GEMINI_API_BASE_URL=https://newapi.aicohere.org/v1/chat/completions
+GEMINI_MODEL_NAME=nano-banana
+GEMINI_API_KEY=your_gemini_api_key
 
 # 应用配置
-NEXT_PUBLIC_APP_NAME=美工设计系统
-NEXT_PUBLIC_MAX_FILE_SIZE=10485760
 STORAGE_ROOT=./.uploads
+NEXT_PUBLIC_APP_NAME=美工设计系统
 ```
-
-**配置更新流程**：
-- 修改环境变量后运行：`node scripts/add-runtime-config.js`
-- 部署前同步存储元数据：`node migrate-storage.js`
 
 ## 核心架构设计
 
-### 1. API 路由层 (`src/app/api/`)
-- **多租户架构**：每个功能模块都有独立的 API 路由
-- **作业队列系统**：`/jobs/[id]` - 异步任务处理和进度跟踪
-- **文件服务**：`/files/[filename]` - 安全的静态文件服务
-- **模板管理**：`/templates/` - 背景和素材模板管理
+### 1. 双模式处理架构（本地 vs Vercel）
 
-### 2. 智能作业队列系统 (`src/lib/job-queue.ts`)
-- **内存存储**：使用 Map 进行作业状态管理
-- **并发控制**：用户级别的并发限制 (最多2个并发任务)
-- **状态管理**：queued → running → succeeded/failed
-- **自动清理**：定期清理过期作业，避免内存泄漏
-- **实时进度**：WebSocket 风格的轮询机制
+系统自动检测运行环境，在本地和Vercel环境使用不同的处理策略：
 
-### 3. API客户端架构 (`src/lib/api/`)
-```
-src/lib/api/
-├── base/
-│   └── BaseApiClient.ts - 基础客户端类
-├── clients/
-│   ├── ImageApiClient.ts - 图像生成客户端
-│   ├── ChatApiClient.ts - 聊天API客户端
-│   ├── ProductImageApiClient.ts - 单品图专用客户端
-│   └── ProductRefineApiClient.ts - 产品精修客户端
-└── index.ts - 统一导出和向后兼容层
-```
-- **模块化设计**：每个客户端职责单一，便于维护
-- **继承体系**：BaseApiClient提供通用功能
-- **向后兼容**：保持与现有代码的兼容性
-- **统一错误处理**：标准化的重试机制和错误日志
+**本地环境（开发/自托管）**：
+- 使用JobQueue异步任务系统（`src/lib/job-queue.ts`）
+- 文件保存到磁盘（`.uploads/`, `public/generated/`）
+- 前端轮询作业状态（`/api/jobs/[id]`）
 
-### 4. 组件设计系统 (`src/components/ui/`)
-```
-src/components/ui/
-├── base/ - 基础组件
-│   ├── button.tsx, input.tsx, label.tsx, badge.tsx
-├── form/ - 表单组件
-│   ├── select.tsx, textarea.tsx, switch.tsx, form.tsx
-├── feedback/ - 反馈组件
-│   ├── alert.tsx, progress.tsx, skeleton.tsx, sonner.tsx
-├── layout/ - 布局组件
-│   ├── card.tsx, dialog.tsx, tabs.tsx, tooltip.tsx, alert-dialog.tsx
-└── index.ts - 统一导出层，保持向后兼容
-```
-- **分类管理**：按功能类型组织，便于查找和维护
-- **规模控制**：每个目录不超过8个文件
-- **向后兼容**：通过index.ts保持现有导入路径有效
+**Vercel环境（生产部署）**：
+- 同步处理模式，立即返回结果
+- FileManager返回base64 Data URLs（无磁盘写入）
+- 跳过localStorage大数据存储（避免配额限制）
+- 环境检测：`process.env.VERCEL === '1'`
 
-### 5. 功能模块架构
+**环境检测代码模式**：
+```typescript
+const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
-#### F6 - 食物替换工具 (`food-replacement/`)
+if (isVercel) {
+  // Vercel同步模式：直接处理并返回结果
+  const result = await processor.process(jobData);
+  return NextResponse.json({ ok: true, data: result });
+} else {
+  // 本地异步模式：创建JobQueue任务
+  const job = JobQueue.createJob('task-type', payload, clientIp);
+  jobRunner.runJob(job.id);
+  return NextResponse.json({ ok: true, jobId: job.id });
+}
 ```
-src/app/food-replacement/
-├── page.tsx (252行) - 主页面逻辑
+
+### 2. 作业队列系统（`src/lib/job-queue.ts`）
+
+**关键特性**：
+- **内存存储**：使用globalThis持久化Map，解决Turbopack热重载数据丢失
+- **并发控制**：每用户最多2个并发任务
+- **状态流转**：`queued → running → succeeded/failed`
+- **自动清理**：15分钟过期清理机制
+
+**典型流程**：
+```typescript
+// 1. 创建作业
+const job = JobQueue.createJob('task-type', payload, clientIp);
+
+// 2. 异步执行
+jobRunner.runJob(job.id);
+
+// 3. 前端轮询状态
+GET /api/jobs/[id] → { ok, job: { status, result, error } }
+```
+
+**重要提示**：
+- 前端轮询必须使用 `data.job` 而非 `data.data`
+- 成功状态值为 `'succeeded'` 而非 `'completed'`
+- 使用globalThis避免Turbopack热重载时丢失作业数据
+
+### 3. API客户端架构（`src/lib/api/`）
+
+**继承体系**：
+```
+BaseApiClient (基础类)
+├── ImageApiClient (Doubao图像生成)
+├── ChatApiClient (Gemini聊天/分析)
+├── ProductImageApiClient (单品图专用)
+└── ProductRefineApiClient (产品精修)
+```
+
+**关键设计模式**：
+- 统一错误处理和重试机制（3次重试，2秒间隔）
+- Markdown图片链接自动下载转换
+- 多格式响应支持（base64/data URL/HTTP URL）
+- 向后兼容导出（`src/lib/api-client.ts`）
+
+**重要提示**：
+- 所有API客户端都继承自BaseApiClient
+- Gemini API客户端需实现 `convertGeminiResponse()` 方法
+- 认证方式：使用Authorization Header而非URL参数
+
+### 4. 文件管理系统（`src/lib/upload.ts`）
+
+**FileManager核心功能**：
+- **双存储模式**：统一存储（`public/generated/`）+ 向后兼容（`.uploads/`）
+- **自动清理**：服务器启动时清理7天前文件，24小时定时任务
+- **安全验证**：文件类型检查、大小限制（10MB）、路径防护
+- **Vercel适配**：环境检测，自动返回base64而非文件路径
+
+**清理API**：
+```bash
+# 智能清理（7天前文件）
+GET /api/files/cleanup?maxAgeDays=7
+
+# 强制清理（所有文件，危险）
+DELETE /api/files/cleanup
+```
+
+**文件保存模式**：
+```typescript
+// 第四个参数控制存储位置
+FileManager.saveBuffer(buffer, filename, 'image/png', true)  // public/generated/
+FileManager.saveBuffer(buffer, filename, 'image/png', false) // .uploads/
+```
+
+### 5. UI组件设计系统（`src/components/ui/`）
+
+**分类架构**（每目录≤8文件）：
+```
+ui/
+├── base/      - button, input, label, badge
+├── form/      - select, textarea, switch, form
+├── feedback/  - alert, progress, skeleton, sonner
+├── layout/    - card, dialog, tabs, tooltip, alert-dialog
+└── index.ts   - 统一导出，保持向后兼容
+```
+
+**重要规范**：
+- 所有组件统一从 `@/components/ui` 导入
+- 基于Radix UI + Tailwind CSS
+- 支持深色模式（next-themes）
+
+### 6. 功能模块示例：食物替换工具
+
+**模块化架构**（`src/app/food-replacement/`）：
+```
+├── page.tsx (252行) - 主页面，协调组件和Hook
 ├── types.ts (36行) - 类型定义
-├── components/ (6个组件，总计579行)
-│   ├── BatchModeToggle.tsx (52行)
-│   ├── SourceImageUpload.tsx (134行)
-│   ├── TargetImageUpload.tsx (100行)
-│   ├── ProcessingStatus.tsx (92行)
-│   ├── ResultDisplay.tsx (97行)
-│   └── TemplateSelector.tsx (104行)
-└── hooks/ (3个Hook，总计315行)
-    ├── useFoodReplacement.ts (128行)
-    ├── useImageUpload.ts (141行)
-    └── useTemplates.ts (46行)
+├── components/ (6个组件)
+│   ├── BatchModeToggle.tsx - 单图/批量模式切换
+│   ├── SourceImageUpload.tsx - 源图片上传
+│   ├── TargetImageUpload.tsx - 目标图片选择
+│   ├── ProcessingStatus.tsx - 处理状态显示
+│   ├── ResultDisplay.tsx - 结果展示
+│   └── TemplateSelector.tsx - 模板选择器
+└── hooks/ (3个Hook)
+    ├── useFoodReplacement.ts - 主业务逻辑
+    ├── useImageUpload.ts - 图片上传管理
+    └── useTemplates.ts - 模板数据管理
 ```
-- **职责分离**：每个组件专注单一功能
-- **状态管理**：Custom Hooks管理复杂状态逻辑
-- **可维护性**：代码模块化，便于测试和修改
 
-#### F1 - 单品图换背景 (`product-image/`)
-- API: `/api/generate/product`
-- 智能抠图 + 背景替换，输出规格：600×450px
+**设计原则**：
+- 组件职责单一，每个文件≤200行
+- 复杂状态逻辑提取为Custom Hooks
+- 批量处理支持智能重试（网络容错）
 
-#### F2 - Logo设计工作室 (`logo-studio/`)
-- API: `/api/logo-studio/generate`
-- 基于豆包多图融合技术，模板图+菜品图智能融合
-- 三种类型：头像(800×800)、店招(1280×720)、海报(1440×480)
-- 48个精选模板，支持食物替换和文字替换
+## 关键技术实现
 
-#### F3 - 门头招牌替换 (`signboard/`)
-- API: `/api/signboard/replace-text`
-- 透视保持 + 自然文字替换，输出规格：4693×3520px
+### 批量处理与网络容错
 
-#### F4 - 图片墙生成 (`picture-wall/`)
-- API: `/api/picture-wall`, `/api/reverse-prompt`
-- Gemini API风格分析 + 批量生成，输出：3张 240×330px
+所有批量功能（食物替换、背景融合）都实现了：
+- **智能重试**：3次重试，2秒间隔
+- **网络容错**：处理timeout、socket hang up、ECONNRESET
+- **部分成功**：单张失败不影响其他图片
+- **实时进度**：精确的处理状态和百分比
 
-#### F5 - 产品精修 (`product-refine/`)
-- API: `/api/product-refine`, `/api/product-refine/batch`
-- AI智能增强 + 批量处理
+**重试机制实现**：
+```typescript
+let retryCount = 0;
+const maxRetries = 3;
 
-#### F6 - 食物替换工具 (`food-replacement/`)
-- API: `/api/food-replacement`, `/api/food-replacement/batch`
-- 智能识别 + 精准替换，支持批量模式和重试机制
+while (retryCount < maxRetries) {
+  try {
+    const result = await processImage(image);
+    return result;
+  } catch (error) {
+    retryCount++;
+    if (retryCount >= maxRetries) throw error;
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+}
+```
 
-#### F7 - 背景融合工具 (`background-fusion/`)
-- API: `/api/background-fusion`, `/api/background-fusion/batch`
-- 智能融合 + 场景适配，批量处理
+### AI提示词优化策略
 
-#### F8 - 多图融合工具 (`multi-fusion/`)
-- API: `/api/multi-fusion`
-- 最多8张图片智能融合，精确食物提取
+**量化色彩增强**（v2.4.0新增）：
+```
+青椒/青菜 → 饱和度+50%, 亮度+30%
+肉类 → 饱和度+40%, 亮度+25%
+辣椒/番茄 → 饱和度+60%, 亮度+20%
+```
 
-## 关键技术特性
+**食物提取规则**（多图融合）：
+- 有碗/盒子：保留容器+食物
+- 无容器：仅提取食物本身
+- 严格排除：背景、桌面、餐具、装饰物
 
-### 1. 批量处理优化
-- **智能重试机制**：3次重试，2秒间隔
-- **网络容错**：处理 timeout、socket hang up、ECONNRESET
-- **部分成功策略**：部分失败不影响成功的结果
-- **实时进度跟踪**：精确的处理状态显示
+### Logo设计工作室两阶段处理
 
-### 2. AI提示词优化
-- **杂物过滤算法**：严格排除背景、桌面、餐具
-- **容器识别逻辑**：有碗保留碗+食物，无碗只提取食物
-- **提示词精简**：减少32%复杂度，提升成功率
+**头像生成流程**（双API架构）：
+1. **阶段1**（Gemini API）：菜品图融合到模板，仅替换食物保留容器
+2. **阶段2**（Doubao API）：识别并替换模板中的店铺名文字
 
-### 3. 文件管理与安全
-- **类型验证**：严格的MIME类型检查
-- **大小限制**：10MB文件大小限制
-- **路径安全**：防止路径遍历攻击
-- **自动清理**：定期清理临时文件
+**店招/海报流程**（单阶段）：
+- 直接使用Gemini API完成食物替换+店名替换
 
-## 开发注意事项
+**重要实现细节**：
+```typescript
+// 阶段2必须上传完整FormData以通过后端验证
+// 但实际处理使用step1ResultUrl作为图像源
+const formData = new FormData();
+formData.append('dishImage', dishImageFile);
+formData.append('avatarTemplate', avatarTemplateFile);
+formData.append('avatarTemplateId', avatarTemplateId);
+formData.append('step1ResultUrl', step1ResultUrl); // 实际处理源
+```
+
+## 开发规范
 
 ### 代码风格
-- **中文注释**：所有注释和文档使用中文
-- **TypeScript严格模式**：启用strict类型检查
-- **组件命名**：PascalCase，文件名使用kebab-case
-- **API路由**：RESTful设计，使用标准HTTP状态码
-- **文件规模控制**：单文件不超过300行，超过则拆分为组件/Hook
-- **目录结构规范**：每个目录不超过8个文件，按功能分类组织
+- **中文注释和文档**：所有注释、commit信息、文档使用中文
+- **文件规模控制**：TypeScript文件≤200行，超出则拆分为组件/Hook
+- **目录结构**：每目录≤8个文件，按功能分类组织
+- **命名规范**：组件PascalCase，文件kebab-case，API路由RESTful
 
-### 性能优化
-- **Turbopack构建**：使用Next.js 15的Turbopack加速构建
-- **图片优化**：使用Sharp进行服务端图片处理
-- **代码分割**：按路由自动分割代码
-- **缓存策略**：API响应缓存和静态资源优化
+### Git提交规范
+```bash
+格式：type: summary（≤72字符）
+类型：feat、fix、update、docs、refactor
+示例：feat: 添加Logo设计工作室双平台下载功能
+```
 
-### 错误处理
-- **统一错误格式**：标准化的ApiResponse类型
-- **详细日志记录**：包含请求ID和处理时长
-- **用户友好提示**：隐藏技术细节，提供可操作的错误信息
-- **优雅降级**：部分功能失败不影响整体系统
+### 调试与测试
+- **作业状态调试**：`GET /api/debug/jobs` 查看所有作业
+- **网络监控**：使用浏览器DevTools的Network/Console选项卡
+- **本地测试**：`npm run dev` 验证完整功能流程
+- **Vercel测试**：检查同步模式、base64返回、localStorage跳过
 
-### 测试与调试
-- **开发调试**：`/api/debug/jobs` 路由用于作业状态调试
-- **手动测试**：通过 `npm run dev` 验证每个功能模块流程
-- **网络监控**：使用浏览器开发者工具的网络和控制台选项卡
-- **API测试**：测试fixtures位于 `src/lib/api-client.ts`
+## 部署注意事项
 
-## Git提交规范
+### Vercel部署（推荐）
+- **环境变量**：在Vercel项目设置中配置所有`*_API_*`变量
+- **超时配置**：已设置`maxDuration = 300`（5分钟）
+- **自动检测**：代码自动识别Vercel环境，切换同步模式
+- **无需修改**：现有代码已完美适配Vercel
 
-遵循现有的提交信息格式：
-- **格式**：`type: summary` (总结不超过72字符)
-- **类型**：feat(新功能)、fix(修复)、update(更新)、docs(文档)
-- **双语说明**：仅在需要澄清时使用中英文双语
-- **PR要求**：包含手动测试检查清单、环境变量更新、截图对比
+### 本地/自托管部署
+- **创建目录**：确保`.uploads/`和`public/generated/`存在
+- **文件权限**：Node.js进程需要读写权限
+- **定期清理**：FileManager自动清理，也可手动调用清理API
 
-## 部署说明
+## 常见问题排查
 
-### 生产环境检查清单
-1. 配置所有必需的环境变量
-2. 确保AI API服务可访问
-3. 创建uploads目录并设置适当权限
-4. 配置静态文件服务
-5. 启用HTTPS（推荐）
-6. 设置适当的CORS策略
-7. Vercel部署会自动使用同步处理模式
+### 问题：前端轮询返回404 "Job not found"
+- **原因**：Turbopack热重载导致作业队列Map被重新初始化
+- **解决**：已使用globalThis持久化（v1.15.0修复）
 
-### 监控指标
-- API响应时间和成功率
-- 作业队列长度和处理延迟
-- 文件存储使用情况
-- AI API配额消耗情况
+### 问题：Vercel部署后生成结果不显示
+- **原因**：前端期待文件路径，但Vercel返回base64
+- **解决**：前端自动检测响应格式，支持base64/文件路径（v2.2.0修复）
+
+### 问题：批量处理部分图片失败
+- **原因**：网络波动或API临时不可用
+- **解决**：启用3次智能重试，部分失败不影响成功图片（v1.4.0+）
+
+### 问题：端口3000被占用，服务器无法启动
+- **原因**：之前的进程未正确终止
+- **解决**：使用上述端口管理规则强制终止进程
+
+### 问题：API响应格式错误
+- **症状**：`Cannot read properties of undefined (reading 'status')`
+- **原因**：使用了错误的响应路径（`data.data` 而非 `data.job`）
+- **解决**：统一使用 `data.job` 访问作业状态
+
+### 问题：Gemini API客户端报错
+- **症状**：`convertGeminiResponse is not a function`
+- **原因**：新API客户端缺少Gemini响应解析方法
+- **解决**：确保所有Gemini客户端都实现 `convertGeminiResponse()` 方法
+
+## 项目独特之处
+
+1. **智能环境适配**：同一套代码在本地和Vercel无缝运行，无需配置
+2. **双AI模型集成**：Doubao处理多图融合，Gemini处理智能分析
+3. **模块化重构**：v2.0版本大规模重构，符合企业级代码规范
+4. **批量处理容错**：行业领先的网络容错和重试机制
+5. **量化提示词**：精确的数值化AI提示词，显著提升生成质量
