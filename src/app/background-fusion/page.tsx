@@ -360,6 +360,7 @@ export default function BackgroundFusionPage() {
             if (data.ok && data.data && data.data.imageUrl) {
               // 处理成功
               const result = {
+                status: 'success' as const,  // ← 添加status字段
                 imageUrl: data.data.imageUrl,
                 width: data.data.width,
                 height: data.data.height,
@@ -378,7 +379,14 @@ export default function BackgroundFusionPage() {
           } catch (error) {
             failedCount++;
             console.error(`✗ 第 ${i + 1} 张处理失败:`, error);
-            // 继续处理下一张
+
+            // 将失败的结果也添加到数组中
+            results.push({
+              status: 'failed' as const,
+              sourceImageIndex: i,
+              sourceFileName: sourceImages[i].name,
+              error: error instanceof Error ? error.message : '未知错误',
+            });
           }
         }
 
