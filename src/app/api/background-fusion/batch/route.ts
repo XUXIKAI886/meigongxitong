@@ -51,7 +51,7 @@ class BatchBackgroundFusionProcessor {
         console.log(`Processing image ${i + 1}/${total}, size: ${sourceImageBuffers[i].length} bytes`);
 
         // 重试机制：最多重试3次
-        let response: Awaited<ReturnType<ProductRefineApiClient[''replaceFoodInBowl'']>> | null = null;
+        let response: Awaited<ReturnType<ProductRefineApiClient['replaceFoodInBowl']>> | null = null;
         let lastError: unknown = null;
         for (let retry = 0; retry < 3; retry++) {
           try {
