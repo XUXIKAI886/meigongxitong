@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProductRefineApiClient } from '@/lib/api-client';
-import { jobRunner, JobQueue } from '@/lib/job-queue';
+import { jobRunner, JobQueue, JobProcessor } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
 import { resolveTemplateFromUrl } from '@/lib/template-path';
 import { config } from '@/lib/config';
-import { v4 as uuidv4 } from 'uuid';
 import { readFile } from 'fs/promises';
 import fs from 'fs';
+import type { Job } from '@/types';
+import type {
+  FoodReplacementJobPayload,
+  FoodReplacementJobResult,
+} from '@/types/job-payloads';
 
 
 // 强制使用 Node.js Runtime (Vercel部署必需)
@@ -14,8 +18,8 @@ export const runtime = 'nodejs';
 export const maxDuration = 300; // 5分钟超时
 
 // 食物替换处理器
-class FoodReplacementProcessor {
-  async process(jobData: any): Promise<{ imageUrl: string; width: number; height: number }> {
+class FoodReplacementProcessor implements JobProcessor<FoodReplacementJobPayload, FoodReplacementJobResult> {
+  async process(jobData: Job<FoodReplacementJobPayload, FoodReplacementJobResult>): Promise<FoodReplacementJobResult> {
     console.log('FoodReplacementProcessor jobData keys:', Object.keys(jobData));
 
     // Extract the actual payload from the job data
@@ -298,7 +302,7 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    const payload = {
+    const payload: FoodReplacementJobPayload = {
       sourceImageBuffer: sourceImageBuffer.toString('base64'), // base64 string
       targetImageBuffer: targetImageBuffer.toString('base64'), // base64 string
       prompt: prompt.trim(),
@@ -312,7 +316,16 @@ export async function POST(request: NextRequest) {
       console.log('Vercel环境检测: 使用同步处理模式');
 
       const processor = new FoodReplacementProcessor();
-      const result = await processor.process({ id: `vercel-${Date.now()}`, payload } as any);
+      const jobLike: Job<FoodReplacementJobPayload, FoodReplacementJobResult> = {
+        id: `vercel-${Date.now()}`,
+        type: 'food-replacement',
+        status: 'queued',
+        payload,
+        progress: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      const result = await processor.process(jobLike);
 
       return NextResponse.json({
         ok: true,
@@ -320,14 +333,18 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // 本地模式: 异步作业队列
-      const job = JobQueue.createJob('food-replacement', payload, clientIp);
+      const job = JobQueue.createJob<FoodReplacementJobPayload, FoodReplacementJobResult>(
+        'food-replacement',
+        payload,
+        clientIp
+      );
 
       console.log(`Starting food replacement job processing for ${job.id}`);
       jobRunner.runJob(job.id);
 
       return NextResponse.json({ ok: true, jobId: job.id });
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Food replacement error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

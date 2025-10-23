@@ -3,8 +3,7 @@ import { ProductRefineApiClient } from '@/lib/api-client';
 import { jobRunner, JobQueue } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
 import { resolveTemplateFromUrl } from '@/lib/template-path';
-import { config } from '@/lib/config';
-import { v4 as uuidv4 } from 'uuid';
+import { Job } from '@/types';
 import { readFile } from 'fs/promises';
 import fs from 'fs';
 
@@ -13,10 +12,20 @@ import fs from 'fs';
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5分钟超时
 
+interface BackgroundFusionJobPayload {
+  sourceImageBuffer: Buffer;
+  targetImageBuffer: Buffer;
+  prompt: string;
+}
+
 // Job processor for background fusion
 class BackgroundFusionProcessor {
-  async process(jobData: any) {
-    const { sourceImageBuffer, targetImageBuffer, prompt } = jobData.payload;
+  async process(jobData: Job) {
+    return this.processPayload(jobData.payload as BackgroundFusionJobPayload);
+  }
+
+  async processPayload(payload: BackgroundFusionJobPayload) {
+    const { sourceImageBuffer, targetImageBuffer, prompt } = payload;
 
     const client = new ProductRefineApiClient();
 
@@ -236,7 +245,7 @@ export async function POST(request: NextRequest) {
       console.log('Vercel环境检测: 使用同步处理模式');
 
       const processor = new BackgroundFusionProcessor();
-      const result = await processor.process({ id: `vercel-${Date.now()}`, payload } as any);
+      const result = await processor.processPayload(payload);
 
       return NextResponse.json({
         ok: true,

@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProductRefineApiClient } from '@/lib/api-client';
-import { jobRunner, JobQueue } from '@/lib/job-queue';
+import { jobRunner, JobQueue, JobProcessor } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
 import { resolveTemplateFromUrl } from '@/lib/template-path';
 import { config } from '@/lib/config';
-import { v4 as uuidv4 } from 'uuid';
-import { writeFile, mkdir, readFile } from 'fs/promises';
+import { mkdir, readFile } from 'fs/promises';
 import path from 'path';
 import fs from 'fs';
+import type { Job } from '@/types';
+import type {
+  BatchFoodReplacementJobPayload,
+  BatchFoodReplacementJobResult,
+  BatchFoodReplacementResultItem,
+} from '@/types/job-payloads';
 
 
 // 强制使用 Node.js Runtime (Vercel部署必需)
@@ -15,20 +20,20 @@ export const runtime = 'nodejs';
 export const maxDuration = 300; // 5分钟超时
 
 // Job processor for batch food replacement
-class BatchFoodReplacementProcessor {
+class BatchFoodReplacementProcessor implements JobProcessor<BatchFoodReplacementJobPayload, BatchFoodReplacementJobResult> {
   private apiClient: ProductRefineApiClient;
 
   constructor() {
     this.apiClient = new ProductRefineApiClient();
   }
 
-  async process(jobData: any): Promise<{ processedCount: number; results: any[] }> {
+  async process(jobData: Job<BatchFoodReplacementJobPayload, BatchFoodReplacementJobResult>): Promise<BatchFoodReplacementJobResult> {
     const payload = jobData.payload;
     const { sourceImageBuffers, sourceImageTypes, targetImageBuffer, targetImageType, prompt } = payload;
 
     console.log(`Starting batch food replacement for ${sourceImageBuffers.length} source images`);
 
-    const results = [];
+    const results: BatchFoodReplacementResultItem[] = [];
     let processedCount = 0;
 
     // 确保输出目录存在 (仅在非Vercel环境)
@@ -59,8 +64,8 @@ class BatchFoodReplacementProcessor {
         });
 
         // 重试机制：最多重试3次
-        let response;
-        let lastError;
+        let response: Awaited<ReturnType<ProductRefineApiClient['replaceFoodInBowl']>> | null = null;
+        let lastError: unknown = null;
         for (let retry = 0; retry < 3; retry++) {
           try {
             console.log(`Attempt ${retry + 1}/3 for image ${i + 1}`);
@@ -70,7 +75,7 @@ class BatchFoodReplacementProcessor {
               prompt: prompt
             });
             break; // 成功则跳出重试循环
-          } catch (error) {
+          } catch (error: unknown) {
             lastError = error;
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             console.log(`Attempt ${retry + 1} failed for image ${i + 1}:`, errorMessage);
@@ -125,7 +130,7 @@ class BatchFoodReplacementProcessor {
             actualWidth = imageBuffer.readUInt32BE(16);
             actualHeight = imageBuffer.readUInt32BE(20);
           }
-        } catch (error) {
+        } catch (error: unknown) {
           console.log(`Failed to parse image dimensions for image ${i + 1}, using defaults:`, error);
         }
 
@@ -149,7 +154,7 @@ class BatchFoodReplacementProcessor {
 
         console.log(`Successfully processed source image ${i + 1}, saved to ${savedFile.url}`);
 
-      } catch (error) {
+      } catch (error: unknown) {
         console.error(`Error processing source image ${i + 1}:`, error);
         
         // 记录失败的图片，但继续处理其他图片
@@ -324,7 +329,7 @@ export async function POST(request: NextRequest) {
         } else {
           targetImageType = 'image/jpeg';
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Failed to load template image:', error);
         return NextResponse.json(
           { error: '无法加载模板图片' },
@@ -369,7 +374,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Batch food replacement error:', error);
     return NextResponse.json(
       { error: '批量食物替换请求失败' },

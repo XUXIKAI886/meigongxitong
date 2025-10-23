@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ImageApiClient, withRetry, rateLimiter, handleApiError } from '@/lib/api-client';
-import { JobQueue, jobRunner } from '@/lib/job-queue';
+import { JobQueue, jobRunner, JobProcessor } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
 import { config } from '@/lib/config';
 import { enhancePromptWithShopDetails } from '@/lib/prompt-templates';
-import { parseSize, resizeImage, validateImageDimensions } from '@/lib/image-utils';
-import { ApiResponse } from '@/types';
+import { parseSize, resizeImage } from '@/lib/image-utils';
+import type { ApiResponse, Job } from '@/types';
+import type { GeneratePromptJobPayload, GenerateImageJobResult } from '@/types/job-payloads';
 
 
 // 强制使用 Node.js Runtime (Vercel部署必需)
@@ -13,10 +14,10 @@ export const runtime = 'nodejs';
 export const maxDuration = 300; // 5分钟超时
 
 // Job processor for storefront generation
-class StorefrontGenerationProcessor {
+class StorefrontGenerationProcessor implements JobProcessor<GeneratePromptJobPayload, GenerateImageJobResult> {
   private imageClient = new ImageApiClient();
 
-  async process(job: any): Promise<{ imageUrl: string; width: number; height: number }> {
+  async process(job: Job<GeneratePromptJobPayload, GenerateImageJobResult>): Promise<GenerateImageJobResult> {
     const { prompt, shopName, category, slogan } = job.payload;
     
     // Enhance prompt with shop details
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Parse request body
-    const body = await request.json();
+    const body = await request.json() as Partial<GeneratePromptJobPayload>;
     const { prompt, shopName, category, slogan } = body;
     
     // Validate required fields
@@ -135,12 +136,17 @@ export async function POST(request: NextRequest) {
     }
     
     // Create job
-    const job = JobQueue.createJob('generate-storefront', {
+    const payload: GeneratePromptJobPayload = {
       prompt,
       shopName,
       category,
       slogan,
-    }, clientIp);
+    };
+    const job = JobQueue.createJob<GeneratePromptJobPayload, GenerateImageJobResult>(
+      'generate-storefront',
+      payload,
+      clientIp
+    );
     
     // Start job processing
     jobRunner.runJob(job.id);

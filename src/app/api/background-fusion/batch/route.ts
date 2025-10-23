@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ProductRefineApiClient } from '@/lib/api-client';
 import { jobRunner, JobQueue } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
-import { config } from '@/lib/config';
-import { v4 as uuidv4 } from 'uuid';
-import { writeFile, mkdir, readFile } from 'fs/promises';
-import path from 'path';
+import { resolveTemplateFromUrl } from '@/lib/template-path';
+import { Job } from '@/types';
+import { readFile } from 'fs/promises';
 import fs from 'fs';
 
 
@@ -13,13 +12,28 @@ import fs from 'fs';
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5分钟超时
 
+interface BatchBackgroundFusionJobPayload {
+  sourceImageBuffers: Buffer[];
+  targetImageBuffer: Buffer;
+  prompt: string;
+}
+
+interface BatchBackgroundFusionResult {
+  sourceImageIndex: number;
+  status: 'success' | 'failed';
+  imageUrl?: string;
+  width?: number;
+  height?: number;
+  error?: string;
+}
+
 // Job processor for batch background fusion
 class BatchBackgroundFusionProcessor {
-  async process(jobData: any) {
-    const { sourceImageBuffers, targetImageBuffer, prompt } = jobData.payload;
+  async process(jobData: Job) {
+    const { sourceImageBuffers, targetImageBuffer, prompt } = jobData.payload as BatchBackgroundFusionJobPayload;
     const client = new ProductRefineApiClient();
     
-    const results = [];
+    const results: BatchBackgroundFusionResult[] = [];
     const total = sourceImageBuffers.length;
     
     for (let i = 0; i < sourceImageBuffers.length; i++) {
@@ -37,8 +51,8 @@ class BatchBackgroundFusionProcessor {
         console.log(`Processing image ${i + 1}/${total}, size: ${sourceImageBuffers[i].length} bytes`);
 
         // 重试机制：最多重试3次
-        let response;
-        let lastError;
+        let response: Awaited<ReturnType<ProductRefineApiClient[''replaceFoodInBowl'']>> | null = null;
+        let lastError: unknown = null;
         for (let retry = 0; retry < 3; retry++) {
           try {
             console.log(`Background Fusion Batch - Attempt ${retry + 1}/3 for image ${i + 1}`);
@@ -180,50 +194,34 @@ export async function POST(request: NextRequest) {
 
     // 处理目标图片
     let targetImageBuffer: Buffer;
-    let targetImageType = 'image/jpeg';
 
     if (targetImage) {
       // 使用上传的文件
       targetImageBuffer = Buffer.from(await targetImage.arrayBuffer());
-      targetImageType = targetImage.type;
     } else {
-      // 使用模板URL - 从文件系统直接读取
       try {
-        // 从URL中提取文件名和平台
-        const urlParts = targetImageUrl.split('/');
-        const filename = decodeURIComponent(urlParts[urlParts.length - 1]);
+        const templatePath = resolveTemplateFromUrl(targetImageUrl, [
+          { prefix: '/api/eleme-background-templates/', rootDir: '����ô�����ں�' },
+          { prefix: '/api/background-fusion/templates/', rootDir: 'shiwutihuangongju' },
+        ]);
 
-        // 根据URL路径判断是美团还是饿了么模板
-        const isElemeTemplate = targetImageUrl.includes('/api/eleme-background-templates/');
-        const templateDir = isElemeTemplate ? '饿了么背景融合' : 'shiwutihuangongju';
-        const templatePath = path.join(process.cwd(), templateDir, filename);
-
-        console.log('Loading batch background fusion template:', {
+        console.log('Batch background fusion template:', {
           url: targetImageUrl,
-          isElemeTemplate,
-          templateDir,
-          filename,
-          fullPath: templatePath
+          templatePath,
         });
 
-        // 检查文件是否存在
         if (!fs.existsSync(templatePath)) {
-          throw new Error(`Template file not found: ${filename} in ${templateDir}`);
+          throw new Error(`Template file not found: ${templatePath}`);
         }
 
-        // 直接从文件系统读取
         targetImageBuffer = await readFile(templatePath);
-
-        // 从文件名推断文件类型
-        const filenameLower = filename.toLowerCase();
-        if (filenameLower.includes('.png')) {
-          targetImageType = 'image/png';
-        } else if (filenameLower.includes('.webp')) {
-          targetImageType = 'image/webp';
-        } else {
-          targetImageType = 'image/jpeg';
-        }
       } catch (error) {
+        console.error('Failed to load template image:', error);
+        return NextResponse.json(
+          { error: '模板路径不合法或文件不存在' },
+          { status: 400 }
+        );
+      }
         console.error('Failed to load template image:', error);
         return NextResponse.json(
           { error: '无法加载模板图片' },

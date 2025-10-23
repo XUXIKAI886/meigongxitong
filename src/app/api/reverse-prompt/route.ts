@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ChatApiClient, withRetry, rateLimiter, handleApiError } from '@/lib/api-client';
-import { createReversePromptRequest, createReversePromptRequestWithBase64, extractPromptFromResponse } from '@/lib/prompt-templates';
-import { JobQueue, jobRunner } from '@/lib/job-queue';
-import { upload, FileManager } from '@/lib/upload';
+import { createReversePromptRequestWithBase64, extractPromptFromResponse } from '@/lib/prompt-templates';
+import { JobQueue, jobRunner, JobProcessor } from '@/lib/job-queue';
 import { config } from '@/lib/config';
-import { ReversePromptRequest, ReversePromptResponse, ApiResponse } from '@/types';
+import { ReversePromptResponse, ApiResponse, Job } from '@/types';
+import type { ReversePromptJobPayload, ReversePromptJobResult } from '@/types/job-payloads';
 
 
 // 强制使用 Node.js Runtime (Vercel部署必需)
@@ -12,10 +12,10 @@ export const runtime = 'nodejs';
 export const maxDuration = 300; // 5分钟超时
 
 // Job processor for reverse prompt
-class ReversePromptProcessor {
+class ReversePromptProcessor implements JobProcessor<ReversePromptJobPayload, ReversePromptJobResult> {
   private chatClient = new ChatApiClient();
 
-  async process(job: any): Promise<ReversePromptResponse> {
+  async process(job: Job<ReversePromptJobPayload, ReversePromptJobResult>): Promise<ReversePromptJobResult> {
     const { sourceImageBuffer, sourceImageType, scene, shopName, category, slogan, extraDirectives } = job.payload;
 
     // Convert buffer back to base64 for API call
@@ -124,15 +124,20 @@ export async function POST(request: NextRequest) {
     const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
 
     // Create job with base64 image data
-    const job = JobQueue.createJob('reverse-prompt', {
+    const payload: ReversePromptJobPayload = {
       sourceImageBuffer: imageBuffer.toString('base64'),
       sourceImageType: imageFile.type,
-      scene,
+      scene: scene as ReversePromptJobPayload['scene'],
       shopName,
       category,
       slogan: slogan || undefined,
       extraDirectives: extraDirectives || undefined,
-    }, clientIp);
+    };
+    const job = JobQueue.createJob<ReversePromptJobPayload, ReversePromptJobResult>(
+      'reverse-prompt',
+      payload,
+      clientIp
+    );
     
     // Start job processing
     jobRunner.runJob(job.id);
@@ -147,7 +152,7 @@ export async function POST(request: NextRequest) {
       durationMs: Date.now() - startTime,
     } as ApiResponse);
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Reverse prompt API error:', error);
     const { message, status } = handleApiError(error);
     

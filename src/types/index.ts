@@ -1,10 +1,30 @@
 // Job management types
-export interface Job {
+export type JobType =
+  | 'reverse-prompt'
+  | 'generate-logo'
+  | 'generate-storefront'
+  | 'generate-poster'
+  | 'generate-product'
+  | 'signboard-replace'
+  | 'picture-wall'
+  | 'background-fusion'
+  | 'batch-background-fusion'
+  | 'food-replacement'
+  | 'batch-food-replacement'
+  | 'product-refine'
+  | 'batch-product-refine'
+  | 'multi-fusion'
+  | 'logo-studio'
+  | 'logo-studio-fusion';
+
+export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
+
+export interface Job<TPayload = unknown, TResult = unknown> {
   id: string;
-  type: 'reverse-prompt' | 'generate-logo' | 'generate-storefront' | 'generate-poster' | 'generate-product' | 'signboard-replace' | 'picture-wall' | 'background-fusion' | 'batch-background-fusion' | 'food-replacement' | 'batch-food-replacement' | 'product-refine' | 'batch-product-refine' | 'multi-fusion' | 'logo-studio' | 'logo-studio-fusion';
-  status: 'queued' | 'running' | 'succeeded' | 'failed';
-  payload: any;
-  result?: any;
+  type: JobType;
+  status: JobStatus;
+  payload: TPayload;
+  result?: TResult;
   progress?: number;
   error?: string;
   createdAt: Date;
@@ -87,7 +107,7 @@ export interface PictureWallResponse {
 }
 
 // Standard API response wrapper
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   ok: boolean;
   data?: T;
   error?: string;

@@ -1,14 +1,14 @@
-import { Job } from '@/types';
+import { Job, JobType } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 // In-memory job storage (in production, use Redis or database)
 // 使用globalThis避免热重载时丢失作业数据
 const globalForJobs = globalThis as unknown as {
-  jobs: Map<string, Job> | undefined;
+  jobs: Map<string, Job<unknown, unknown>> | undefined;
   userJobs: Map<string, Set<string>> | undefined;
 };
 
-const jobs = globalForJobs.jobs ?? new Map<string, Job>();
+const jobs = globalForJobs.jobs ?? new Map<string, Job<unknown, unknown>>();
 const userJobs = globalForJobs.userJobs ?? new Map<string, Set<string>>();
 
 if (process.env.NODE_ENV !== 'production') {
@@ -18,15 +18,11 @@ if (process.env.NODE_ENV !== 'production') {
 
 export class JobQueue {
   // Create a new job
-  static createJob(
-    type: Job['type'],
-    payload: any,
-    userId?: string
-  ): Job {
+  static createJob<TPayload, TResult = unknown>(type: JobType, payload: TPayload, userId?: string): Job<TPayload, TResult> {
     // Clean up old jobs before creating new ones
     this.cleanup();
 
-    const job: Job = {
+    const job: Job<TPayload, TResult> = {
       id: uuidv4(),
       type,
       status: 'queued',
@@ -36,7 +32,7 @@ export class JobQueue {
       updatedAt: new Date(),
     };
 
-    jobs.set(job.id, job);
+    jobs.set(job.id, job as Job<unknown, unknown>);
 
     // Track user jobs for concurrency control
     if (userId) {
@@ -52,16 +48,17 @@ export class JobQueue {
   }
   
   // Get job by ID
-  static getJob(jobId: string): Job | undefined {
-    return jobs.get(jobId);
+  static getJob<TPayload = unknown, TResult = unknown>(jobId: string): Job<TPayload, TResult> | undefined {
+    const job = jobs.get(jobId);
+    return job as Job<TPayload, TResult> | undefined;
   }
   
   // Update job status
-  static updateJob(
+  static updateJob<TPayload = unknown, TResult = unknown>(
     jobId: string,
-    updates: Partial<Pick<Job, 'status' | 'progress' | 'result' | 'error'>>
-  ): Job | undefined {
-    const job = jobs.get(jobId);
+    updates: Partial<Pick<Job<TPayload, TResult>, 'status' | 'progress' | 'result' | 'error'>>
+  ): Job<TPayload, TResult> | undefined {
+    const job = jobs.get(jobId) as Job<TPayload, TResult> | undefined;
     if (!job) {
       console.log(`updateJob: Job ${jobId} not found`);
       return undefined;
@@ -73,7 +70,7 @@ export class JobQueue {
     });
 
     Object.assign(job, updates, { updatedAt: new Date() });
-    jobs.set(jobId, job);
+    jobs.set(jobId, job as Job<unknown, unknown>);
 
     console.log(`updateJob: Job ${jobId} updated successfully, new status: ${job.status}`);
 
@@ -97,13 +94,13 @@ export class JobQueue {
   }
   
   // Get user jobs
-  static getUserJobs(userId: string): Job[] {
+  static getUserJobs<TPayload = unknown, TResult = unknown>(userId: string): Job<TPayload, TResult>[] {
     const userJobIds = userJobs.get(userId);
     if (!userJobIds) return [];
     
     return Array.from(userJobIds)
-      .map(id => jobs.get(id))
-      .filter((job): job is Job => job !== undefined)
+      .map(id => jobs.get(id) as Job<TPayload, TResult> | undefined)
+      .filter((job): job is Job<TPayload, TResult> => job !== undefined)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
   
@@ -178,20 +175,32 @@ export class JobQueue {
       failed: allJobs.filter(job => job.status === 'failed').length,
     };
   }
+
+  // Expose job snapshots for diagnostics (read-only)
+  static listJobs(): ReadonlyArray<Job<unknown, unknown>> {
+    return Array.from(jobs.values());
+  }
+
+  static listUserJobMapping(): Array<{ userId: string; jobIds: string[] }> {
+    return Array.from(userJobs.entries()).map(([userId, ids]) => ({
+      userId,
+      jobIds: Array.from(ids),
+    }));
+  }
 }
 
 // Job processor interface
-export interface JobProcessor {
-  process(job: Job): Promise<any>;
+export interface JobProcessor<TPayload = unknown, TResult = unknown> {
+  process(job: Job<TPayload, TResult>): Promise<TResult>;
 }
 
 // Job runner
 export class JobRunner {
-  private processors = new Map<Job['type'], JobProcessor>();
+  private processors = new Map<JobType, JobProcessor<any, any>>();
   private running = new Set<string>();
   
-  registerProcessor(type: Job['type'], processor: JobProcessor): void {
-    this.processors.set(type, processor);
+  registerProcessor<TPayload, TResult = unknown>(type: JobType, processor: JobProcessor<TPayload, TResult>): void {
+    this.processors.set(type, processor as JobProcessor<any, any>);
   }
   
   async runJob(jobId: string): Promise<void> {

@@ -2,7 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Upload, Download, Loader2, Grid, Image as ImageIcon, Trash2, ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ArrowLeftIcon, ArrowRightIcon, ImageIcon } from 'lucide-react';
+import BatchModeToggle from './components/BatchModeToggle';
+import SourceImageUpload from './components/SourceImageUpload';
+import TargetImageUpload from './components/TargetImageUpload';
+import ProcessingStatus from './components/ProcessingStatus';
+import ResultDisplay from './components/ResultDisplay';
 
 export default function BackgroundFusionPage() {
   // 模式状态
@@ -474,498 +480,112 @@ export default function BackgroundFusionPage() {
     }
   };
 
+  const canStartProcessing = isBatchMode
+    ? sourceImages.length > 0 && (batchTargetImage || selectedTemplate)
+    : sourceImage && (targetImage || selectedTemplate);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        {/* 头部导航 */}
-        <div className="flex items-center gap-4 mb-8">
-          <Link href="/">
-            <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900 transition-colors">
-              <ArrowLeft className="w-4 h-4" />
-              返回首页
-            </button>
-          </Link>
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50">
+      <div className="container mx-auto px-4 py-8">
+        {/* 页面标题和导航 */}
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">🍽️ 背景融合工具</h1>
-            <p className="text-gray-600 mt-1">将源图片中的美食完美融合到目标背景中，创造令人垂涎的视觉效果</p>
+            <div className="flex items-center gap-4 mb-2">
+              <Link href="/">
+                <Button variant="outline" size="sm">
+                  <ArrowLeftIcon className="w-4 h-4 mr-2" />
+                  返回首页
+                </Button>
+              </Link>
+              <div className="h-6 border-l border-gray-300"></div>
+              <h1 className="text-2xl font-bold text-gray-800">背景融合工具</h1>
+            </div>
+            <p className="text-gray-600">将源图片中的美食完美融合到目标背景中，创造令人垂涎的视觉效果</p>
           </div>
         </div>
 
-        {/* 模式切换 */}
-        <div className="flex justify-center mb-8">
-          <div className="bg-white rounded-lg p-1 shadow-md">
-            <button
-              onClick={() => setIsBatchMode(false)}
-              className={`px-6 py-2 rounded-md transition-all ${
-                !isBatchMode
-                  ? 'bg-orange-500 text-white shadow-md'
-                  : 'text-gray-600 hover:text-orange-500'
-              }`}
-            >
-              单张模式
-            </button>
-            <button
-              onClick={() => setIsBatchMode(true)}
-              className={`px-6 py-2 rounded-md transition-all ${
-                isBatchMode
-                  ? 'bg-orange-500 text-white shadow-md'
-                  : 'text-gray-600 hover:text-orange-500'
-              }`}
-            >
-              批量模式
-            </button>
-          </div>
-        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          {/* 左侧 - 配置区域 */}
+          <div className="xl:col-span-2 space-y-6">
+            <BatchModeToggle
+              isBatchMode={isBatchMode}
+              onToggle={(mode) => setIsBatchMode(mode)}
+            />
 
-        {/* 功能说明 */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            {isBatchMode ? '批量背景融合' : '单张背景融合'}
-          </h2>
-          <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-600">
-            <div className="flex items-start space-x-2">
-              <span className="bg-orange-100 text-orange-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">1</span>
-              <span>上传{isBatchMode ? '多张' : '一张'}源图片（包含美食）</span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <span className="bg-orange-100 text-orange-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">2</span>
-              <span>选择目标背景（上传或选择风格）</span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <span className="bg-orange-100 text-orange-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">3</span>
-              <span>AI将美食完美融合到背景中</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 主要内容区域 */}
-        <div className="grid lg:grid-cols-3 gap-8 mb-8">
-          {/* 源图片上传区域 */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              源图片 ({isBatchMode ? '美食来源' : '美食来源'})
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              {isBatchMode ? '上传包含美食的多张图片（最多10张）' : '上传包含美食的图片'}
-            </p>
-
-            {isBatchMode ? (
-              <div>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => handleFileUpload(e.target.files, 'batchSource')}
-                  className="hidden"
-                  id="batch-source-upload"
-                />
-                <label
-                  htmlFor="batch-source-upload"
-                  className="block w-full p-8 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-orange-400 transition-colors"
-                >
-                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <p className="text-gray-600 font-medium">上传源图片</p>
-                  <p className="text-sm text-gray-500 mt-1">拖拽图片到此处或点击选择</p>
-                  <p className="text-xs text-gray-400 mt-2">支持 JPEG、PNG、WebP，最大 10MB，最多10张</p>
-                </label>
-
-                {sourceImages.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-sm font-medium text-gray-700 mb-2">已选择 {sourceImages.length} 张图片：</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {sourceImagePreviews.map((preview, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={preview}
-                            alt={`源图片 ${index + 1}`}
-                            className="w-full h-20 object-cover rounded border"
-                          />
-                          <button
-                            onClick={() => removeBatchSourceImage(index)}
-                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            ×
-                          </button>
-                          <p className="text-xs text-gray-500 mt-1 truncate">{sourceImages[index].name}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFileUpload(e.target.files, 'source')}
-                  className="hidden"
-                  id="source-upload"
-                />
-                <label
-                  htmlFor="source-upload"
-                  className="block w-full p-8 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-orange-400 transition-colors"
-                >
-                  {sourceImagePreview ? (
-                    <div>
-                      <img
-                        src={sourceImagePreview}
-                        alt="源图片预览"
-                        className="mx-auto max-h-32 rounded mb-2"
-                      />
-                      <p className="text-sm text-gray-600">{sourceImage?.name}</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <p className="text-gray-600 font-medium">上传源图片</p>
-                      <p className="text-sm text-gray-500 mt-1">拖拽图片到此处或点击选择</p>
-                      <p className="text-xs text-gray-400 mt-2">支持 JPEG、PNG、WebP，最大 10MB</p>
-                    </div>
-                  )}
-                </label>
-              </div>
-            )}
-          </div>
-
-          {/* 箭头指示 */}
-          <div className="flex items-center justify-center">
-            <div className="bg-orange-100 rounded-full p-4">
-              <ImageIcon className="h-8 w-8 text-orange-600" />
-            </div>
-            <p className="ml-2 text-sm font-medium text-gray-600">背景融合</p>
-          </div>
-
-          {/* 目标图片上传区域 */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              目标背景 (融合背景)
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              上传目标背景图片或选择风格
-            </p>
-
-            {/* 模式切换按钮 */}
-            <div className="flex space-x-2 mb-4">
-              <button
-                onClick={() => {
-                  setShowTemplateSelector(true);
-                  loadMeituanTemplates();
-                }}
-                className={`flex items-center px-2 py-2 rounded-md text-sm transition-colors justify-center ${
-                  showTemplateSelector && currentPlatform === 'meituan'
-                    ? 'bg-yellow-500 text-black font-medium border-2 border-yellow-600'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                <svg className="w-4 h-4 mr-1" viewBox="0 0 200 200" fill="none">
-                  <rect width="200" height="200" rx="45" fill="#FFD100"/>
-                  <text x="100" y="135" fontSize="85" fontWeight="bold" textAnchor="middle" fill="#000">美团</text>
-                </svg>
-                美团风格
-              </button>
-              <button
-                onClick={() => {
-                  setShowTemplateSelector(true);
-                  loadElemeTemplates();
-                }}
-                className={`flex items-center px-2 py-2 rounded-md text-sm transition-colors justify-center ${
-                  showTemplateSelector && currentPlatform === 'eleme'
-                    ? 'bg-blue-500 text-white font-medium border-2 border-blue-600'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                <svg className="w-4 h-4 mr-1" viewBox="0 0 200 200" fill="none">
-                  <rect width="200" height="200" rx="45" fill="#0091FF"/>
-                  <circle cx="100" cy="100" r="70" stroke="white" strokeWidth="12" fill="none"/>
-                  <path d="M 85 85 Q 100 70, 115 85" stroke="white" strokeWidth="10" fill="none" strokeLinecap="round"/>
-                  <circle cx="130" cy="95" r="5" fill="white"/>
-                </svg>
-                饿了么风格
-              </button>
-              <button
-                onClick={() => setShowTemplateSelector(false)}
-                className={`flex items-center px-3 py-2 rounded-md text-sm transition-colors ${
-                  !showTemplateSelector
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                <Upload className="w-4 h-4 mr-1" />
-                上传图片
-              </button>
-            </div>
-
-            {showTemplateSelector ? (
-              // 风格选择器
-              <div>
-                {selectedTemplate ? (
-                  <div className="text-center">
-                    <img
-                      src={selectedTemplate.url}
-                      alt={`风格: ${selectedTemplate.name}`}
-                      className="mx-auto max-h-32 rounded mb-2"
-                    />
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-600">已选择风格: {selectedTemplate.name}</p>
-                      <button
-                        onClick={() => {
-                          clearTemplateSelection();
-                          setShowTemplateSelector(true);
-                        }}
-                        className="flex items-center justify-center w-full px-3 py-2 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 transition-colors text-sm"
-                      >
-                        <Grid className="w-4 h-4 mr-1" />
-                        重新选择
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    {loadingTemplates ? (
-                      <div className="text-center py-8">
-                        <Loader2 className="mx-auto h-8 w-8 text-orange-500 animate-spin mb-2" />
-                        <p className="text-sm text-gray-600">加载风格中...</p>
-                      </div>
-                    ) : (currentPlatform === 'eleme' ? elemeTemplates : meituanTemplates).length > 0 ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        {(currentPlatform === 'eleme' ? elemeTemplates : meituanTemplates).map((template, index) => (
-                          <div
-                            key={index}
-                            className="group relative cursor-pointer"
-                            onClick={() => selectTemplate(template)}
-                          >
-                            <img
-                              src={template.url}
-                              alt={template.name}
-                              className={`w-full object-cover rounded border group-hover:border-orange-400 transition-colors ${
-                                currentPlatform === 'eleme' ? 'aspect-square' : 'aspect-[4/3]'
-                              }`}
-                              onError={(e) => {
-                                console.error('Template image failed to load:', template.url);
-                                e.currentTarget.style.backgroundColor = '#f3f4f6';
-                              }}
-                            />
-                            <div className="absolute inset-0 bg-transparent group-hover:bg-black group-hover:bg-opacity-30 rounded transition-all duration-200 flex items-center justify-center">
-                              <button className="bg-orange-500 text-white px-3 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                选择
-                              </button>
-                            </div>
-                            <p className="text-xs text-gray-600 mt-1 truncate">{template.name}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <p className="text-sm text-gray-500">暂无可用风格</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              // 文件上传
-              <div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFileUpload(e.target.files, isBatchMode ? 'batchTarget' : 'target')}
-                  className="hidden"
-                  id="target-upload"
-                />
-                <label
-                  htmlFor="target-upload"
-                  className="block w-full p-8 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-orange-400 transition-colors"
-                >
-                  {(isBatchMode ? batchTargetImagePreview : targetImagePreview) ? (
-                    <div>
-                      <img
-                        src={isBatchMode ? batchTargetImagePreview! : targetImagePreview!}
-                        alt="目标图片预览"
-                        className="mx-auto max-h-32 rounded mb-2"
-                      />
-                      <p className="text-sm text-gray-600">
-                        {isBatchMode ? batchTargetImage?.name : targetImage?.name}
-                      </p>
-                    </div>
-                  ) : (
-                    <div>
-                      <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <p className="text-gray-600 font-medium">上传目标图片</p>
-                      <p className="text-sm text-gray-500 mt-1">拖拽图片到此处或点击选择</p>
-                      <p className="text-xs text-gray-400 mt-2">支持 JPEG、PNG、WebP，最大 10MB</p>
-                    </div>
-                  )}
-                </label>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 处理按钮 */}
-        <div className="text-center mb-8">
-          <button
-            onClick={handleBackgroundFusion}
-            disabled={
-              isProcessing ||
-              (isBatchMode
-                ? (sourceImages.length === 0 || (!batchTargetImage && !selectedTemplate))
-                : (!sourceImage || (!targetImage && !selectedTemplate))
-              )
-            }
-            className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-8 rounded-lg transition-colors flex items-center justify-center mx-auto"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                处理中...
-              </>
-            ) : (
-              <>
-                <ImageIcon className="h-5 w-5 mr-2" />
-                开始背景融合
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* 处理状态 */}
-        {isProcessing && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">处理状态</h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{statusMessage}</span>
-                <span className="text-sm font-medium text-orange-600">{progress}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-orange-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                ></div>
-              </div>
-              <p className="text-sm text-gray-500">AI正在智能分析图片并进行背景融合，请耐心等待...</p>
-            </div>
-          </div>
-        )}
-
-        {/* 单张结果显示 */}
-        {!isBatchMode && result && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">融合结果</h3>
-            <div className="text-center">
-              <img
-                src={result}
-                alt="背景融合结果"
-                className="mx-auto max-w-full h-auto rounded-lg shadow-md mb-4"
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SourceImageUpload
+                isBatchMode={isBatchMode}
+                sourceImage={sourceImage}
+                sourceImagePreview={sourceImagePreview || ''}
+                onFileUpload={handleFileUpload}
+                sourceImages={sourceImages}
+                sourceImagePreviews={sourceImagePreviews}
+                onRemoveBatchImage={removeBatchSourceImage}
               />
-              <button
-                onClick={() => {
-                  // 使用原始文件名或生成默认名称
-                  const filename = fileNamesRef.current[0] || 'background-fusion-result.jpg';
-                  console.log('单张下载 - 使用文件名:', filename);
-                  downloadImage(result, filename);
-                }}
-                className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors flex items-center justify-center mx-auto"
+
+              <TargetImageUpload
+                isBatchMode={isBatchMode}
+                showTemplateSelector={showTemplateSelector}
+                currentPlatform={currentPlatform}
+                selectedTemplate={selectedTemplate}
+                meituanTemplates={meituanTemplates}
+                elemeTemplates={elemeTemplates}
+                loadingTemplates={loadingTemplates}
+                onLoadMeituanTemplates={loadMeituanTemplates}
+                onLoadElemeTemplates={loadElemeTemplates}
+                onSelectTemplate={selectTemplate}
+                onClearTemplateSelection={clearTemplateSelection}
+                onShowTemplateSelector={setShowTemplateSelector}
+                targetImage={targetImage}
+                targetImagePreview={targetImagePreview || ''}
+                batchTargetImage={batchTargetImage}
+                batchTargetImagePreview={batchTargetImagePreview || ''}
+                onFileUpload={handleFileUpload}
+              />
+            </div>
+
+            {/* 开始处理按钮 */}
+            <div className="flex justify-center">
+              <Button
+                onClick={handleBackgroundFusion}
+                disabled={!canStartProcessing || isProcessing}
+                size="lg"
+                className="min-w-[200px] bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
               >
-                <Download className="h-5 w-5 mr-2" />
-                下载图片
-              </button>
+                {isProcessing ? '处理中...' : '开始背景融合'}
+                <ArrowRightIcon className="w-5 h-5 ml-2" />
+              </Button>
             </div>
           </div>
-        )}
 
-        {/* 批量结果显示 */}
-        {isBatchMode && (batchResults.length > 0 || historicalBatchResults.length > 0) && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">
-                批量融合结果 ({[...batchResults, ...historicalBatchResults].filter(r => r.status === 'success').length} 张成功)
-              </h3>
-              <div className="flex space-x-2">
-                <button
-                  onClick={downloadAllImages}
-                  disabled={[...batchResults, ...historicalBatchResults].filter(r => r.status === 'success').length === 0}
-                  className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center text-sm"
-                >
-                  <Download className="h-4 w-4 mr-1" />
-                  下载全部
-                </button>
-                {historicalBatchResults.length > 0 && (
-                  <button
-                    onClick={clearHistoricalResults}
-                    className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center text-sm"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    清除历史
-                  </button>
-                )}
-              </div>
-            </div>
+          {/* 右侧 - 状态和结果区域 */}
+          <div className="space-y-6">
+            <ProcessingStatus
+              isProcessing={isProcessing}
+              statusMessage={statusMessage}
+              progress={progress}
+            />
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {[...batchResults, ...historicalBatchResults].map((result, index) => (
-                <div key={index} className="relative">
-                  {result.status === 'success' ? (
-                    <div className="relative group">
-                      <img
-                        src={result.imageUrl}
-                        alt={`融合结果 ${index + 1}`}
-                        className="w-full h-32 object-cover rounded border group-hover:border-orange-400 transition-colors"
-                      />
-                      <div className="absolute inset-0 rounded transition-all duration-200 flex items-center justify-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0)' }}>
-                        <button
-                          onClick={() => {
-                            // 使用原始文件名或生成默认名称
-                            const filename = result.sourceFileName || `background-fusion-${index + 1}.jpg`;
-                            console.log(`批量单张下载 - 第${index + 1}张，使用文件名:`, filename);
-                            downloadImage(result.imageUrl, filename);
-                          }}
-                          className="bg-green-500 text-white px-3 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          下载
-                        </button>
-                      </div>
-                      <p className="text-xs text-gray-600 mt-1">源图片 {result.sourceImageIndex + 1}</p>
-                    </div>
-                  ) : (
-                    <div className="w-full h-32 bg-red-100 border border-red-300 rounded flex items-center justify-center">
-                      <div className="text-center">
-                        <p className="text-red-600 text-sm font-medium">处理失败</p>
-                        <p className="text-red-500 text-xs mt-1">源图片 {result.sourceImageIndex + 1}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 使用提示 */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">使用提示</h3>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-semibold text-gray-700 mb-2">📸 图片要求</h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li>• 源图片：清晰显示美食，光线充足</li>
-                <li>• 目标背景：适合美食展示的场景</li>
-                <li>• 建议使用高清图片，效果更佳</li>
-                <li>• 支持 JPEG、PNG、WebP 格式</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-gray-700 mb-2">✨ 最佳效果</h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li>• 光线条件相似的图片效果更好</li>
-                <li>• 背景简洁时融合效果更自然</li>
-                <li>• 避免过于复杂的背景纹理</li>
-                <li>• 美食边界清晰的图片处理效果更佳</li>
-              </ul>
-            </div>
+            <ResultDisplay
+              isBatchMode={isBatchMode}
+              result={result}
+              onDownloadSingle={() => {
+                const filename = fileNamesRef.current[0] || 'background-fusion-result.jpg';
+                console.log('单张下载 - 使用文件名:', filename);
+                downloadImage(result!, filename);
+              }}
+              batchResults={batchResults}
+              historicalBatchResults={historicalBatchResults}
+              onDownloadAll={downloadAllImages}
+              onClearHistorical={clearHistoricalResults}
+              onDownloadBatchImage={(imageUrl, filename, index) => {
+                console.log(`批量单张下载 - 第${index + 1}张，使用文件名:`, filename);
+                downloadImage(imageUrl, filename);
+              }}
+            />
           </div>
         </div>
+
       </div>
     </div>
   );
