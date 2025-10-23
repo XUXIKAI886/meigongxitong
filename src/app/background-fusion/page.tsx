@@ -28,11 +28,11 @@ export default function BackgroundFusionPage() {
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
 
-  // 模板相关状态
+  // 风格相关状态
   const [meituanTemplates, setMeituanTemplates] = useState<any[]>([]);
   const [elemeTemplates, setElemeTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
-  const [showTemplateSelector, setShowTemplateSelector] = useState(true); // 默认显示模板选择器
+  const [showTemplateSelector, setShowTemplateSelector] = useState(true); // 默认显示风格选择器
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [currentPlatform, setCurrentPlatform] = useState<'meituan' | 'eleme'>('meituan');
 
@@ -42,7 +42,7 @@ export default function BackgroundFusionPage() {
   // 保存原始文件名的ref (避免闭包问题)
   const fileNamesRef = useRef<string[]>([]);
 
-  // 加载美团模板
+  // 加载美团风格
   const loadMeituanTemplates = async () => {
     setCurrentPlatform('meituan');
 
@@ -62,7 +62,7 @@ export default function BackgroundFusionPage() {
     }
   };
 
-  // 加载饿了么模板
+  // 加载饿了么风格
   const loadElemeTemplates = async () => {
     setCurrentPlatform('eleme');
 
@@ -82,7 +82,7 @@ export default function BackgroundFusionPage() {
     }
   };
 
-  // 选择模板
+  // 选择风格
   const selectTemplate = (template: any) => {
     setSelectedTemplate(template);
     
@@ -90,7 +90,7 @@ export default function BackgroundFusionPage() {
     setTargetImage(null);
     setBatchTargetImage(null);
     
-    // 设置模板预览
+    // 设置风格预览
     if (isBatchMode) {
       setBatchTargetImagePreview(template.url);
     } else {
@@ -98,16 +98,16 @@ export default function BackgroundFusionPage() {
     }
   };
 
-  // 清除模板选择
+  // 清除风格选择
   const clearTemplateSelection = () => {
     setSelectedTemplate(null);
     setTargetImagePreview(null);
     setBatchTargetImagePreview(null);
   };
 
-  // 页面加载时加载模板和历史结果
+  // 页面加载时加载风格和历史结果
   useEffect(() => {
-    loadMeituanTemplates(); // 默认加载美团模板
+    loadMeituanTemplates(); // 默认加载美团风格
     
     // 加载历史批量结果
     const saved = localStorage.getItem('backgroundFusionBatchResults');
@@ -181,13 +181,13 @@ export default function BackgroundFusionPage() {
           case 'target':
             setTargetImage(file);
             setTargetImagePreview(result);
-            // 清除模板选择
+            // 清除风格选择
             setSelectedTemplate(null);
             break;
           case 'batchTarget':
             setBatchTargetImage(file);
             setBatchTargetImagePreview(result);
-            // 清除模板选择
+            // 清除风格选择
             setSelectedTemplate(null);
             break;
         }
@@ -529,7 +529,7 @@ export default function BackgroundFusionPage() {
             </div>
             <div className="flex items-start space-x-2">
               <span className="bg-orange-100 text-orange-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">2</span>
-              <span>选择目标背景（上传或选择模板）</span>
+              <span>选择目标背景（上传或选择风格）</span>
             </div>
             <div className="flex items-start space-x-2">
               <span className="bg-orange-100 text-orange-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">3</span>
@@ -642,7 +642,7 @@ export default function BackgroundFusionPage() {
               目标背景 (融合背景)
             </h3>
             <p className="text-sm text-gray-600 mb-4">
-              上传目标背景图片或选择模板
+              上传目标背景图片或选择风格
             </p>
 
             {/* 模式切换按钮 */}
@@ -662,7 +662,7 @@ export default function BackgroundFusionPage() {
                   <rect width="200" height="200" rx="45" fill="#FFD100"/>
                   <text x="100" y="135" fontSize="85" fontWeight="bold" textAnchor="middle" fill="#000">美团</text>
                 </svg>
-                美团模板
+                美团风格
               </button>
               <button
                 onClick={() => {
@@ -681,7 +681,7 @@ export default function BackgroundFusionPage() {
                   <path d="M 85 85 Q 100 70, 115 85" stroke="white" strokeWidth="10" fill="none" strokeLinecap="round"/>
                   <circle cx="130" cy="95" r="5" fill="white"/>
                 </svg>
-                饿了么模板
+                饿了么风格
               </button>
               <button
                 onClick={() => setShowTemplateSelector(false)}
@@ -697,17 +697,17 @@ export default function BackgroundFusionPage() {
             </div>
 
             {showTemplateSelector ? (
-              // 模板选择器
+              // 风格选择器
               <div>
                 {selectedTemplate ? (
                   <div className="text-center">
                     <img
                       src={selectedTemplate.url}
-                      alt={`模板: ${selectedTemplate.name}`}
+                      alt={`风格: ${selectedTemplate.name}`}
                       className="mx-auto max-h-32 rounded mb-2"
                     />
                     <div className="space-y-2">
-                      <p className="text-sm text-gray-600">已选择模板: {selectedTemplate.name}</p>
+                      <p className="text-sm text-gray-600">已选择风格: {selectedTemplate.name}</p>
                       <button
                         onClick={() => {
                           clearTemplateSelection();
@@ -725,7 +725,7 @@ export default function BackgroundFusionPage() {
                     {loadingTemplates ? (
                       <div className="text-center py-8">
                         <Loader2 className="mx-auto h-8 w-8 text-orange-500 animate-spin mb-2" />
-                        <p className="text-sm text-gray-600">加载模板中...</p>
+                        <p className="text-sm text-gray-600">加载风格中...</p>
                       </div>
                     ) : (currentPlatform === 'eleme' ? elemeTemplates : meituanTemplates).length > 0 ? (
                       <div className="grid grid-cols-2 gap-3">
@@ -757,7 +757,7 @@ export default function BackgroundFusionPage() {
                       </div>
                     ) : (
                       <div className="text-center py-8">
-                        <p className="text-sm text-gray-500">暂无可用模板</p>
+                        <p className="text-sm text-gray-500">暂无可用风格</p>
                       </div>
                     )}
                   </div>
