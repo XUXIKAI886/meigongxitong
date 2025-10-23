@@ -16,7 +16,7 @@ export const maxDuration = 300; // 5分钟超时
 // Job processor for multi-image fusion
 class MultiFusionProcessor {
   async process(jobData: any) {
-    const { sourceImageBuffers, targetImageBuffer, prompt } = jobData.payload;
+    const { sourceImageBuffers, targetImageBuffer, prompt, templateType } = jobData.payload;
 
     const client = new ProductRefineApiClient();
 
@@ -94,10 +94,22 @@ Create a commercial-quality restaurant image where all ${sourceImagesBase64.leng
       true
     );
 
+    // 根据模板类型返回相应的尺寸
+    let width: number, height: number;
+    if (templateType === 'eleme') {
+      // 饿了么模板：2048×2048 正方形
+      width = 2048;
+      height = 2048;
+    } else {
+      // 美团模板：1200×900 (4:3比例)
+      width = 1200;
+      height = 900;
+    }
+
     return {
       imageUrl: savedFile.url,
-      width: 1200,
-      height: 900
+      width,
+      height
     };
   }
 }
@@ -138,6 +150,8 @@ export async function POST(request: NextRequest) {
 
     // 处理目标背景
     let targetImageBuffer: Buffer;
+    let templateType: 'meituan' | 'eleme' = 'meituan'; // 默认美团
+
     if (targetImage) {
       const arrayBuffer = await targetImage.arrayBuffer();
       targetImageBuffer = Buffer.from(arrayBuffer);
@@ -147,15 +161,32 @@ export async function POST(request: NextRequest) {
         // 从URL中提取文件名
         const urlParts = templateUrl.split('/');
         const filename = decodeURIComponent(urlParts[urlParts.length - 1]);
-        const templatePath = path.join(process.cwd(), 'shiwutihuangongju', filename);
+
+        // 根据URL判断模板目录和类型
+        let templateDir: string;
+        if (templateUrl.includes('/eleme-multi-fusion-templates/')) {
+          // 饿了么模板
+          templateDir = '饿了么套餐图风格';
+          templateType = 'eleme';
+          console.log('使用饿了么套餐图模板:', filename, '(2048×2048)');
+        } else {
+          // 美团模板（默认）
+          templateDir = 'shiwutihuangongju';
+          templateType = 'meituan';
+          console.log('使用美团套餐图模板:', filename, '(1200×900)');
+        }
+
+        const templatePath = path.join(process.cwd(), templateDir, filename);
 
         // 检查文件是否存在
         if (!fs.existsSync(templatePath)) {
+          console.error(`Template file not found: ${templatePath}`);
           throw new Error(`Template file not found: ${filename}`);
         }
 
         // 直接从文件系统读取
         targetImageBuffer = await readFile(templatePath);
+        console.log('成功加载模板文件，大小:', targetImageBuffer.length, 'bytes');
       } catch (error) {
         console.error('Failed to load template image:', error);
         return NextResponse.json(
@@ -194,7 +225,8 @@ Generate a high-quality restaurant-style image where all ${sourceImages.length} 
     const payload = {
       sourceImageBuffers,
       targetImageBuffer,
-      prompt
+      prompt,
+      templateType // 传递模板类型给处理器
     };
 
     // Vercel 环境检测: 同步处理而非异步作业队列

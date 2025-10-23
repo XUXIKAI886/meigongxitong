@@ -21,29 +21,60 @@ export default function MultiFusionPage() {
   const [statusMessage, setStatusMessage] = useState('');
 
   // 模板相关状态
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [meituanTemplates, setMeituanTemplates] = useState<any[]>([]);
+  const [elemeTemplates, setElemeTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [currentPlatform, setCurrentPlatform] = useState<'meituan' | 'eleme'>('meituan');
 
   // 保存原始文件名的ref (避免闭包问题)
   const fileNamesRef = useRef<string[]>([]);
 
+  // 加载美团风格模板
+  const loadMeituanTemplates = async () => {
+    setCurrentPlatform('meituan');
 
+    if (meituanTemplates.length > 0) {
+      return;
+    }
 
-  // 加载模板 - 使用背景融合工具的模板API
-  const loadTemplates = async () => {
     setLoadingTemplates(true);
     try {
-      const response = await fetch('/api/background-fusion/templates');
+      const response = await fetch('/api/multi-fusion/templates');
       const data = await response.json();
-      setTemplates(data.templates || []);
+      setMeituanTemplates(data.templates || []);
     } catch (error) {
-      console.error('Failed to load templates:', error);
+      console.error('Failed to load Meituan templates:', error);
     } finally {
       setLoadingTemplates(false);
     }
   };
+
+  // 加载饿了么风格模板
+  const loadElemeTemplates = async () => {
+    setCurrentPlatform('eleme');
+
+    if (elemeTemplates.length > 0) {
+      return;
+    }
+
+    setLoadingTemplates(true);
+    try {
+      const response = await fetch('/api/eleme-multi-fusion-templates');
+      const data = await response.json();
+      setElemeTemplates(data.templates || []);
+    } catch (error) {
+      console.error('Failed to load Eleme templates:', error);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  // 页面加载时加载美团模板
+  useEffect(() => {
+    loadMeituanTemplates();
+  }, []);
 
   // 选择模板
   const selectTemplate = (template: any) => {
@@ -58,11 +89,6 @@ export default function MultiFusionPage() {
     setTargetImagePreview(null);
   };
 
-  // 页面加载时加载模板
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
   // 处理多张源图片上传
   const handleSourceImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -71,9 +97,9 @@ export default function MultiFusionPage() {
     // 限制最多上传8张图片
     const maxFiles = 8;
     const selectedFiles = files.slice(0, maxFiles);
-    
+
     setSourceImages(prev => [...prev, ...selectedFiles].slice(0, maxFiles));
-    
+
     // 生成预览
     selectedFiles.forEach(file => {
       const reader = new FileReader();
@@ -97,7 +123,7 @@ export default function MultiFusionPage() {
 
     setTargetImage(file);
     clearTemplateSelection();
-    
+
     const reader = new FileReader();
     reader.onload = (e) => {
       setTargetImagePreview(e.target?.result as string);
@@ -258,13 +284,16 @@ export default function MultiFusionPage() {
     setStatusMessage('');
   };
 
+  // 获取当前显示的模板列表
+  const currentTemplates = currentPlatform === 'meituan' ? meituanTemplates : elemeTemplates;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-pink-100/50 relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 opacity-40">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-50/20 via-transparent to-pink-50/20"></div>
       </div>
-      
+
       {/* Header */}
       <header className="border-b border-white/20 bg-white/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-5">
@@ -382,18 +411,40 @@ export default function MultiFusionPage() {
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-white/20">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                   <ImageIcon className="h-5 w-5 mr-2 text-purple-600" />
-                  选择背景
+                  选择背景风格
                 </h3>
 
                 <div className="space-y-4">
-                  {/* 模板选择按钮 */}
-                  <button
-                    onClick={() => setShowTemplateSelector(!showTemplateSelector)}
-                    className="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 shadow-lg"
-                  >
-                    <Grid className="h-5 w-5 mr-2" />
-                    {selectedTemplate ? '更换背景模板' : '选择背景模板'}
-                  </button>
+                  {/* 风格选择按钮 */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        loadMeituanTemplates();
+                        setShowTemplateSelector(true);
+                      }}
+                      className={`flex-1 flex items-center justify-center px-4 py-3 rounded-xl transition-all duration-300 shadow-md ${
+                        currentPlatform === 'meituan' && showTemplateSelector
+                          ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white'
+                          : 'bg-white border-2 border-yellow-400 text-yellow-700 hover:bg-yellow-50'
+                      }`}
+                    >
+                      <span className="font-semibold">🟡 美团风格</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        loadElemeTemplates();
+                        setShowTemplateSelector(true);
+                      }}
+                      className={`flex-1 flex items-center justify-center px-4 py-3 rounded-xl transition-all duration-300 shadow-md ${
+                        currentPlatform === 'eleme' && showTemplateSelector
+                          ? 'bg-gradient-to-r from-blue-400 to-blue-600 text-white'
+                          : 'bg-white border-2 border-blue-500 text-blue-700 hover:bg-blue-50'
+                      }`}
+                    >
+                      <span className="font-semibold">🔵 饿了么风格</span>
+                    </button>
+                  </div>
 
                   {/* 或者分隔线 */}
                   <div className="flex items-center">
@@ -424,6 +475,15 @@ export default function MultiFusionPage() {
                         alt="目标背景"
                         className="w-full h-48 object-cover rounded-xl border-2 border-purple-200"
                       />
+                      {selectedTemplate && (
+                        <div className={`absolute top-2 left-2 px-3 py-1 rounded-lg text-xs font-semibold ${
+                          selectedTemplate.platform === 'eleme'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-yellow-500 text-white'
+                        }`}>
+                          {selectedTemplate.platform === 'eleme' ? '🔵 饿了么风格' : '🟡 美团风格'}
+                        </div>
+                      )}
                       <button
                         onClick={() => {
                           setTargetImage(null);
@@ -521,7 +581,7 @@ export default function MultiFusionPage() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                   <Grid className="h-5 w-5 mr-2 text-purple-600" />
-                  选择背景模板
+                  {currentPlatform === 'meituan' ? '🟡 美团风格模板' : '🔵 饿了么风格模板'}
                 </h3>
                 <button
                   onClick={() => setShowTemplateSelector(false)}
@@ -538,7 +598,7 @@ export default function MultiFusionPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {templates.map((template, index) => (
+                  {currentTemplates.map((template, index) => (
                     <div
                       key={index}
                       onClick={() => {
@@ -551,14 +611,17 @@ export default function MultiFusionPage() {
                           : 'border-gray-200 hover:border-purple-300'
                       }`}
                     >
-                      <div style={{ position: 'relative', width: '100%', height: '128px' }}>
+                      <div style={{ position: 'relative', width: '100%', paddingBottom: '75%', backgroundColor: '#f9fafb' }}>
                         <img
                           src={template.url}
                           alt={template.name}
                           style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
                             width: '100%',
                             height: '100%',
-                            objectFit: 'cover',
+                            objectFit: 'contain',
                             display: 'block'
                           }}
                         />

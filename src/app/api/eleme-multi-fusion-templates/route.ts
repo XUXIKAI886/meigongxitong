@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
 export async function GET() {
   try {
-    const templatesDir = path.join(process.cwd(), 'public', '饿了么产品图模板');
+    const templatesDir = path.join(process.cwd(), 'public', '饿了么套餐图风格');
 
     // 检查模板目录是否存在
     if (!fs.existsSync(templatesDir)) {
@@ -27,10 +27,10 @@ export async function GET() {
       const stats = fs.statSync(filePath);
 
       return {
-        id: `eleme-template-${index + 1}`,
+        id: `eleme-multi-template-${index + 1}`,
         name: path.parse(file).name,
         filename: file,
-        url: `/api/eleme-templates/${encodeURIComponent(file)}`,
+        url: `/api/eleme-multi-fusion-templates/${encodeURIComponent(file)}`,
         size: stats.size,
         createdAt: stats.birthtime.toISOString(),
         platform: 'eleme', // 标记为饿了么模板
@@ -43,9 +43,9 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Error reading Eleme templates:', error);
+    console.error('Error reading Eleme multi-fusion templates:', error);
     return NextResponse.json(
-      { error: 'Failed to load Eleme templates' },
+      { error: 'Failed to load Eleme multi-fusion templates' },
       { status: 500 }
     );
   }

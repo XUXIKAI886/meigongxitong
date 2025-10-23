@@ -4,7 +4,7 @@ import path from 'path';
 
 export async function GET() {
   try {
-    const templatesDir = path.join(process.cwd(), '饿了么背景融合');
+    const templatesDir = path.join(process.cwd(), 'public', '饿了么背景融合');
 
     // 检查模板目录是否存在
     if (!fs.existsSync(templatesDir)) {

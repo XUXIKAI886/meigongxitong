@@ -9,11 +9,11 @@ export async function GET(
   try {
     const { filename: rawFilename } = await params;
     const filename = decodeURIComponent(rawFilename);
-    const filePath = path.join(process.cwd(), '饿了么背景融合', filename);
+    const filePath = path.join(process.cwd(), 'public', '饿了么背景融合', filename);
 
     // 安全检查：防止路径遍历攻击
     const normalizedPath = path.normalize(filePath);
-    const templatesDir = path.join(process.cwd(), '饿了么背景融合');
+    const templatesDir = path.join(process.cwd(), 'public', '饿了么背景融合');
 
     if (!normalizedPath.startsWith(templatesDir)) {
       return NextResponse.json(
