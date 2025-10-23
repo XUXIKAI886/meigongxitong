@@ -6,7 +6,7 @@ interface SourceImageUploadProps {
   // 单张模式
   sourceImage: File | null;
   sourceImagePreview: string;
-  onFileUpload: (files: FileList | null, type: string) => void;
+  onFileUpload: (files: FileList | null, type: 'source' | 'target' | 'batchSource' | 'batchTarget') => void;
   // 批量模式
   sourceImages: File[];
   sourceImagePreviews: string[];

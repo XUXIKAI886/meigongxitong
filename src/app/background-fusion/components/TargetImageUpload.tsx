@@ -26,7 +26,7 @@ interface TargetImageUploadProps {
   targetImagePreview: string;
   batchTargetImage: File | null;
   batchTargetImagePreview: string;
-  onFileUpload: (files: FileList | null, type: string) => void;
+  onFileUpload: (files: FileList | null, type: 'source' | 'target' | 'batchSource' | 'batchTarget') => void;
 }
 
 export default function TargetImageUpload({
