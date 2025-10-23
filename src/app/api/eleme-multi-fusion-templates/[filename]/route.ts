@@ -4,10 +4,10 @@ import path from 'path';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { filename: string } }
+  { params }: { params: Promise<{ filename: string }> }
 ) {
   try {
-    const filename = params.filename;
+    const { filename } = await params;
     const templatesDir = path.join(process.cwd(), 'public', '饿了么套餐图风格');
     const filePath = path.join(templatesDir, filename);
 
