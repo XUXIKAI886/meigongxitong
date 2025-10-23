@@ -86,7 +86,7 @@ export default function LogoStudioPage() {
   // 风格店铺名状态（用于精确替换）
   const [templateStoreName, setTemplateStoreName] = useState<string>('');
 
-  // 风格排序函数 - 按风格编号数值排序
+  // 风格排序函数 - 按风格编号数值倒序排序（新的风格排在前面）
   const sortTemplatesByNumber = (templates: LogoTemplate[]) => {
     return [...templates].sort((a, b) => {
       // 从 ID 中提取数字，格式: "avatar-通用-1.png" 或 "storefront-通用-15.png"
@@ -94,7 +94,8 @@ export default function LogoStudioPage() {
         const match = id.match(/-(\d+)\.(png|jpg|jpeg)$/i);
         return match ? parseInt(match[1], 10) : 0;
       };
-      return getNumber(a.id) - getNumber(b.id);
+      // 倒序排列：从大到小（20, 19, 18... 3, 2, 1）
+      return getNumber(b.id) - getNumber(a.id);
     });
   };
 
