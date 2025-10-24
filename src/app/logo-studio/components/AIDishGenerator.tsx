@@ -22,7 +22,7 @@ interface AIDishGeneratorProps {
  *
  * 功能流程：
  * 1. 用户输入菜品描述
- * 2. 可选上传原图参考
+ * 2. 必选上传原图参考
  * 3. 点击"优化提示词" → 流式优化（实时覆盖输入框）
  * 4. 点击"生成菜品图" → 生成图片
  * 5. 预览结果 → 应用此图 | 重新生成
@@ -195,10 +195,10 @@ export function AIDishGenerator({ onApplyImage, onModeChange }: AIDishGeneratorP
           )}
         </div>
 
-        {/* 原图上传（可选） */}
+        {/* 原图上传（必选） */}
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-700">
-            原图参考（可选，有助于AI理解）
+            原图参考（必选，有助于AI理解）
           </label>
           <div className="relative">
             <input
@@ -237,7 +237,7 @@ export function AIDishGenerator({ onApplyImage, onModeChange }: AIDishGeneratorP
         <div className="flex gap-3">
           <Button
             onClick={handleOptimizePrompt}
-            disabled={!description.trim() || promptOptimizer.isOptimizing || dishGenerator.isGenerating}
+            disabled={!description.trim() || !referenceImage || promptOptimizer.isOptimizing || dishGenerator.isGenerating}
             variant="outline"
             className="flex-1"
           >
@@ -256,7 +256,7 @@ export function AIDishGenerator({ onApplyImage, onModeChange }: AIDishGeneratorP
 
           <Button
             onClick={handleGenerateDish}
-            disabled={!description.trim() || promptOptimizer.isOptimizing || dishGenerator.isGenerating}
+            disabled={!description.trim() || !referenceImage || promptOptimizer.isOptimizing || dishGenerator.isGenerating}
             className="flex-1"
           >
             {dishGenerator.isGenerating ? (
