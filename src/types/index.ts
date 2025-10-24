@@ -4,15 +4,12 @@ export type JobType =
   | 'generate-logo'
   | 'generate-storefront'
   | 'generate-poster'
-  | 'generate-product'
   | 'signboard-replace'
   | 'picture-wall'
   | 'background-fusion'
   | 'batch-background-fusion'
   | 'food-replacement'
   | 'batch-food-replacement'
-  | 'product-refine'
-  | 'batch-product-refine'
   | 'multi-fusion'
   | 'logo-studio'
   | 'logo-studio-fusion';
@@ -45,31 +42,6 @@ export interface ReversePromptResponse {
   summary: string;
   prompt: string;
   tokens: number;
-}
-
-export interface GenerateProductRequest {
-  sourceImageBuffer: string; // base64 encoded image data
-  sourceImageType: string; // MIME type
-  background: {
-    mode: 'solid' | 'gradient' | 'texture' | 'text2img';
-    solidColor?: string;
-    gradient?: { from: string; to: string; angle: number };
-    texturePrompt?: string;
-    text2imgPrompt?: string;
-  };
-  enhance?: {
-    sharpen: boolean;
-    denoise: boolean;
-    beautify: boolean;
-    beautifyPreset: string;
-  };
-  outputSize: string; // "600x450"
-}
-
-export interface GenerateProductResponse {
-  imageUrl: string;
-  width: number;
-  height: number;
 }
 
 export interface SignboardReplaceTextRequest {
