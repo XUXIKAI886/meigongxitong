@@ -87,9 +87,9 @@ export function useLogoStudioGeneration(params: UseLogoStudioGenerationParams) {
         { url: avatar.avatarResult, filename: `${params.storeName}-品牌头像.png` },
       ]);
 
-      if (failed.length > 0) {
-        alert(`已有 ${failed.length} 个文件下载失败，可稍后重试。`);
-      } else if (success.length > 0) {
+      if (failed > 0) {
+        alert(`已有 ${failed} 个文件下载失败，可稍后重试。`);
+      } else if (success > 0) {
         alert('素材下载完成，欢迎继续优化设计。');
       }
     } catch (error) {
