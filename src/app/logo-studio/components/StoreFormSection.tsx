@@ -51,12 +51,14 @@ export function StoreFormSection({
                 placeholder="例如：风格里的参考店名"
                 value={templateStoreName}
                 onChange={(event) => onTemplateStoreNameChange(event.target.value)}
-                className="mt-1"
+                className="mt-1 bg-gray-50 cursor-not-allowed"
+                readOnly
+                title="此字段由模板自动填充，不可修改"
               />
             </div>
           </div>
           <p className="text-xs text-gray-500">
-            小贴士：请填写风格原始店名，AI 才能在提示词中精准替换为您的门店名称。
+            小贴士：风格店铺名由模板自动填充，AI 会在提示词中将其精准替换为您的门店名称。
           </p>
         </CardContent>
       </Card>
