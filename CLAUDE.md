@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Next.js 15 (App Router + Turbopack)
 - React 19 + TypeScript
 - Tailwind CSS 4 + Radix UI
-- 多AI模型集成（Gemini API、豆包API）
+- 多AI模型集成（Gemini API、Doubao API、Coze API）
 
 ## 常用开发命令
 
@@ -38,9 +38,10 @@ npm run dev
 
 ### 环境变量配置
 
-项目使用两套AI API：
+项目使用三套AI API：
 - **Doubao API**：Logo设计、门头招牌、图片墙（`IMAGE_*`变量）
 - **Gemini API**：食物替换、背景融合、产品精修（`GEMINI_*`变量）
+- **Coze API**：AI菜品图生成、提示词优化（`COZE_*`变量）
 
 必需的环境变量（`.env.local`）：
 ```bash
@@ -53,6 +54,12 @@ IMAGE_API_KEY=your_doubao_api_key
 GEMINI_API_BASE_URL=https://newapi.aicohere.org/v1/chat/completions
 GEMINI_MODEL_NAME=nano-banana
 GEMINI_API_KEY=your_gemini_api_key
+
+# Coze API配置（Logo工作室AI生成）
+COZE_API_BASE_URL=https://api.coze.cn/v3
+COZE_ACCESS_TOKEN=your_coze_access_token
+COZE_BOT_DISH_GENERATOR=bot_id_for_dish_generation
+COZE_BOT_PROMPT_OPTIMIZER=bot_id_for_prompt_optimization
 
 # 应用配置
 STORAGE_ROOT=./.uploads
@@ -125,7 +132,8 @@ BaseApiClient (基础类)
 ├── ImageApiClient (Doubao图像生成)
 ├── ChatApiClient (Gemini聊天/分析)
 ├── ProductImageApiClient (单品图专用)
-└── ProductRefineApiClient (产品精修)
+├── ProductRefineApiClient (产品精修)
+└── CozeApiClient (Coze SSE流式响应)
 ```
 
 **关键设计模式**：
@@ -206,6 +214,64 @@ ui/
 
 ## 关键技术实现
 
+### Coze API集成（SSE流式响应）
+
+**架构设计**（`src/lib/api/clients/CozeApiClient.ts`）：
+- **SSE流式传输**：实时接收AI生成进度，支持中途取消（AbortController）
+- **双Bot机制**：
+  - 提示词优化Bot：优化用户输入的菜品描述
+  - 菜品图生成Bot：基于优化提示词和原图参考生成菜品图
+- **文件上传处理**：自动将图片转base64并上传到Coze
+
+**使用场景**：
+```typescript
+// 提示词优化（流式响应）
+const optimizer = useCozePromptOptimizer({
+  onOptimizationComplete: (optimized) => setDescription(optimized),
+  onChunk: (chunk) => console.log('实时更新:', chunk)
+});
+await optimizer.optimize(description, referenceImage);
+
+// 菜品图生成
+const generator = useCozeDishGenerator({
+  onGenerationComplete: (imageFile) => handleApplyImage(imageFile)
+});
+await generator.generate(optimizedPrompt, referenceImage);
+```
+
+**重要特性**：
+- 流式数据通过回调函数逐段返回，UI实时更新
+- 支持AbortController取消长时间运行的请求
+- 错误处理统一在客户端封装，业务层无需关心重试逻辑
+- 必须提供原图参考才能使用（UI层强制校验）
+
+### 客户端图片压缩（Vercel优化）
+
+**实现位置**（`src/app/logo-studio/hooks/useLogoStudioForm.ts`）：
+- **压缩算法**：Canvas API，1920×1920最大尺寸，85%质量
+- **触发时机**：用户上传图片时自动压缩
+- **压缩效果**：5-10MB → 1-2MB，解决Vercel 4.5MB请求体限制
+- **容错机制**：压缩失败时自动使用原图
+
+**代码示例**：
+```typescript
+async function compressImage(
+  file: File,
+  maxWidth = 1920,
+  maxHeight = 1920,
+  quality = 0.85
+): Promise<Blob> {
+  // Canvas API压缩实现
+  // 自动计算缩放比例、保持宽高比
+  // 输出JPEG格式
+}
+```
+
+**重要提示**：
+- 压缩过程在浏览器端完成，减轻服务器负担
+- 适用于所有需要上传大图片的场景
+- 压缩日志会输出到浏览器Console，便于调试
+
 ### 批量处理与网络容错
 
 所有批量功能（食物替换、背景融合）都实现了：
@@ -233,17 +299,31 @@ while (retryCount < maxRetries) {
 
 ### AI提示词优化策略
 
-**量化色彩增强**（v2.4.0新增）：
+**量化色彩增强**（位于`src/app/api/logo-studio/generate/route.ts`）：
 ```
 青椒/青菜 → 饱和度+50%, 亮度+30%
 肉类 → 饱和度+40%, 亮度+25%
 辣椒/番茄 → 饱和度+60%, 亮度+20%
+米饭 → 亮度+40%
 ```
 
 **食物提取规则**（多图融合）：
 - 有碗/盒子：保留容器+食物
 - 无容器：仅提取食物本身
-- 严格排除：背景、桌面、餐具、装饰物
+- 严格排除：背景、桌面、餐具、装饰物、**水印文字**
+
+**水印排除策略**（重要！）：
+```typescript
+// 在createFoodReplacementPrompt()和createSimpleFusionPrompt()中
+- 明确排除"AI生成"等水印文字
+- 特别针对右下角标识进行专门处理
+- 适用于头像、店招、海报所有类型
+```
+
+**食物摆放要求**：
+- 份量：7-8分满，避免边缘大面积留白
+- 布局：自然铺满容器内部空间，不仅集中中心
+- 立体感：保持堆叠层次，营造丰盛饱满效果
 
 ### Logo设计工作室两阶段处理
 
@@ -327,10 +407,38 @@ formData.append('step1ResultUrl', step1ResultUrl); // 实际处理源
 - **原因**：新API客户端缺少Gemini响应解析方法
 - **解决**：确保所有Gemini客户端都实现 `convertGeminiResponse()` 方法
 
+### 问题：413 Payload Too Large - 图片上传失败
+- **原因**：Vercel Serverless Functions限制请求体为4.5MB
+- **解决**：已在 `useLogoStudioForm.ts` 中实现客户端自动压缩
+- **配置**：1920×1920最大尺寸，85%质量，JPEG格式
+- **效果**：5-10MB原图 → 1-2MB压缩图，压缩失败时自动使用原图
+
+### 问题：401 Unauthorized - Coze API认证失败
+- **原因**：环境变量未在Vercel项目中配置
+- **解决**：在Vercel Dashboard → Settings → Environment Variables 添加：
+  - `COZE_API_BASE_URL`
+  - `COZE_ACCESS_TOKEN`
+  - `COZE_BOT_DISH_GENERATOR`
+  - `COZE_BOT_PROMPT_OPTIMIZER`
+- **注意**：配置后需重新部署才能生效
+
+### 问题：TypeScript构建错误 - 类型转换失败
+- **场景**：模拟`ChangeEvent<HTMLInputElement>`时单次类型断言失败
+- **解决**：使用双重类型断言 `as unknown as React.ChangeEvent<HTMLInputElement>`
+
+### 问题：AI生成图片包含水印
+- **症状**：生成的头像/店招/海报右下角出现"AI生成"水印
+- **原因**：原图参考包含水印，提示词未明确排除
+- **解决**：已在提示词中添加水印排除指令（v2.5.0+）
+- **位置**：`src/app/api/logo-studio/generate/route.ts` 中的 `createFoodReplacementPrompt()` 和 `createSimpleFusionPrompt()`
+
 ## 项目独特之处
 
 1. **智能环境适配**：同一套代码在本地和Vercel无缝运行，无需配置
-2. **双AI模型集成**：Doubao处理多图融合，Gemini处理智能分析
+2. **三套AI模型集成**：Doubao处理图像生成，Gemini处理智能分析，Coze处理流式交互
 3. **模块化重构**：v2.0版本大规模重构，符合企业级代码规范
 4. **批量处理容错**：行业领先的网络容错和重试机制
 5. **量化提示词**：精确的数值化AI提示词，显著提升生成质量
+6. **客户端优化**：浏览器端自动图片压缩，解决云平台限制
+7. **SSE流式响应**：Coze API实时反馈，支持中途取消，提升用户体验
+8. **水印自动排除**：提示词工程自动移除AI生成水印，保证成图质量
