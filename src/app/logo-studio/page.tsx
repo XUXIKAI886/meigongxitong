@@ -41,7 +41,7 @@ export default function LogoStudioPage() {
       target: {
         files: [imageFile],
       },
-    } as React.ChangeEvent<HTMLInputElement>;
+    } as unknown as React.ChangeEvent<HTMLInputElement>;
 
     form.handleDishImageUpload(mockEvent);
   };
