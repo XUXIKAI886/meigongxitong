@@ -21,7 +21,7 @@ export function DishUploadModeSelector({ mode, onChange }: DishUploadModeSelecto
   return (
     <Card>
       <CardContent className="pt-6">
-        <p className="mb-4 text-sm font-medium text-gray-700">请选择菜品图上传方式：</p>
+        <p className="mb-4 text-sm font-medium text-gray-700">请选择主推菜品图上传方式：</p>
         <div className="space-y-3">
           {/* 手动上传选项 */}
           <button
