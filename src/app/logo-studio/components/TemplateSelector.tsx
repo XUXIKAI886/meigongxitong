@@ -151,7 +151,7 @@ function CategorySelect({ value, placeholder, categories, onChange }: CategorySe
 interface TemplateGridProps {
   templates: LogoTemplate[];
   selectedId?: string;
-  highlight?: 'green' | 'blue';
+  highlight?: 'green' | 'blue' | 'purple';
   onSelect: (template: LogoTemplate) => void;
 }
 
