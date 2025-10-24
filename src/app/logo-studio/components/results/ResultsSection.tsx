@@ -32,11 +32,7 @@ export function ResultsSection({
   onDownloadElemeSet,
   onDownloadImage,
 }: ResultsSectionProps) {
-  const hasAnyResult = Boolean(storefrontResult || posterResult || avatarResult || avatarStep1Result);
-  if (!hasAnyResult) {
-    return null;
-  }
-
+  // 所有 Hooks 必须在任何条件语句之前调用
   const downloadStorefrontEleme = useCallback(async () => {
     if (!storefrontResult) return;
     const { downloadResizedImage } = await import('@/lib/image-download');

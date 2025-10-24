@@ -11,7 +11,17 @@ export const config = {
     modelName: process.env.CHAT_MODEL_NAME!,
     apiKey: process.env.CHAT_API_KEY!,
   },
-  
+
+  // Coze API Configuration
+  coze: {
+    baseUrl: process.env.COZE_API_BASE_URL || 'https://api.coze.cn',
+    accessToken: process.env.COZE_ACCESS_TOKEN!,
+    bots: {
+      dishGenerator: process.env.COZE_BOT_DISH_GENERATOR || '7456823183216459803',
+      promptOptimizer: process.env.COZE_BOT_PROMPT_OPTIMIZER || '7563941488246816808',
+    },
+  },
+
   // Storage Configuration
   storage: {
     root: process.env.STORAGE_ROOT || './.uploads',
