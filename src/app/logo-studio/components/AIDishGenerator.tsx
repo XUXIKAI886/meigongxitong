@@ -184,7 +184,7 @@ export function AIDishGenerator({ onApplyImage, onModeChange }: AIDishGeneratorP
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="例如：一碗热气腾腾的牛肉面，浓郁的汤底，嫩滑的牛肉片，撒上香菜和葱花..."
+            placeholder="请填写图片的食物完整名称"
             className="min-h-[120px]"
             disabled={promptOptimizer.isOptimizing || dishGenerator.isGenerating}
           />
