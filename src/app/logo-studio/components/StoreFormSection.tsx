@@ -50,10 +50,10 @@ export function StoreFormSection({
                 id="templateStoreName"
                 placeholder="例如：风格里的参考店名"
                 value={templateStoreName}
-                onChange={(event) => onTemplateStoreNameChange(event.target.value)}
-                className="mt-1 bg-gray-50 cursor-not-allowed"
+                className="mt-1 bg-gray-100 cursor-not-allowed select-none"
                 readOnly
                 title="此字段由模板自动填充，不可修改"
+                tabIndex={-1}
               />
             </div>
           </div>
