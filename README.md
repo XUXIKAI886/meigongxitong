@@ -4,8 +4,8 @@
 > 基于 Next.js 15、React 19 与 TypeScript，覆盖 Logo 设计、产品图生成、食材替换、背景融合等多种商家视觉场景。
 
 ## 功能模块概览
-- **Logo 设计工作室（`src/app/logo-studio`）**  
-  上传菜品图片，按类别选择模板，分两步完成头像生成，并可一键生成店招（1280×720）与海报（1440×480）。重构后页面拆分为 `components`、`hooks`、`constants` 子目录，便于维护表单、模板选择、生成逻辑与结果展示。
+- **Logo 设计工作室（`src/app/logo-studio`）**
+  支持**手动上传**和 **AI 智能生成**两种菜品图获取方式。手动模式可直接上传图片；AI 模式通过 Coze API 实现提示词优化与菜品图生成（支持流式响应）。按类别选择模板后，分两步完成头像生成（第一步使用 Gemini API 融合菜品，第二步使用 Doubao API 替换店名），并可一键生成店招（1280×720）与海报（1440×480）。重构后页面拆分为 `components`、`hooks`、`constants` 子目录，便于维护表单、模板选择、生成逻辑与结果展示。
 - **品牌设计工作室（`src/app/brand-studio`）**  
   上传参考 Logo，自动分析风格并输出 Logo、店招与海报三件套，适合品牌升级与延展。
 - **产品图片生成（`src/app/product-image`）**  
@@ -49,11 +49,12 @@
 ## 环境变量说明
 在 `.env.local` 中维护以下配置，并避免提交真实密钥：
 
-- `IMAGE_API_BASE_URL` / `IMAGE_MODEL_NAME` / `IMAGE_API_KEY`
-- `CHAT_API_BASE_URL` / `CHAT_MODEL_NAME` / `CHAT_API_KEY`
-- `PRODUCT_IMAGE_API_BASE_URL` / `PRODUCT_IMAGE_MODEL_NAME` / `PRODUCT_IMAGE_API_KEY`
-- `PRODUCT_REFINE_API_BASE_URL` / `PRODUCT_REFINE_MODEL_NAME` / `PRODUCT_REFINE_API_KEY`
-- `GEMINI_API_BASE_URL` / `GEMINI_MODEL_NAME` / `GEMINI_API_KEY`
+- `IMAGE_API_BASE_URL` / `IMAGE_MODEL_NAME` / `IMAGE_API_KEY`（Doubao API，用于 Logo/门头/图片墙）
+- `CHAT_API_BASE_URL` / `CHAT_MODEL_NAME` / `CHAT_API_KEY`（聊天/分析专用）
+- `PRODUCT_IMAGE_API_BASE_URL` / `PRODUCT_IMAGE_MODEL_NAME` / `PRODUCT_IMAGE_API_KEY`（单品图专用）
+- `PRODUCT_REFINE_API_BASE_URL` / `PRODUCT_REFINE_MODEL_NAME` / `PRODUCT_REFINE_API_KEY`（产品精修专用）
+- `GEMINI_API_BASE_URL` / `GEMINI_MODEL_NAME` / `GEMINI_API_KEY`（统一的 Gemini API 配置）
+- **`COZE_API_BASE_URL`** / **`COZE_ACCESS_TOKEN`** / **`COZE_BOT_DISH_GENERATOR`** / **`COZE_BOT_PROMPT_OPTIMIZER`**（Coze API，用于 Logo 工作室 AI 菜品图生成）
 - `STORAGE_ROOT`（默认 `.uploads`，用于临时文件）
 - `NEXT_PUBLIC_APP_NAME` / `NEXT_PUBLIC_APP_DESCRIPTION`
 
@@ -85,6 +86,8 @@
 - `README-图像生成基准.md`：图片生成标准与质检要点。
 - `VERCEL_405_FIX.md`、`VERCEL_REDEPLOY_STEPS.md`：Vercel 部署排障指南。
 - `CLAUDE.md`、`AGENTS.md`：AI 协作流程与历史背景说明。
+- `COZE_API_IMPLEMENTATION.md`：Coze API 集成实现详细文档，包含架构设计、SSE 流式实现、错误处理和故障排查。
+- `COZE_INTEGRATION_SPEC.md`：Coze API 集成技术规格说明。
 
 ---
 

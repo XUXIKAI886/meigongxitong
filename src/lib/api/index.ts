@@ -4,12 +4,15 @@ export { ImageApiClient } from './clients/ImageApiClient';
 export { ChatApiClient } from './clients/ChatApiClient';
 export { ProductImageApiClient } from './clients/ProductImageApiClient';
 export { ProductRefineApiClient } from './clients/ProductRefineApiClient';
+export { CozeApiClient } from './clients/CozeApiClient';
 
 // 导入客户端类
 import { ImageApiClient } from './clients/ImageApiClient';
 import { ChatApiClient } from './clients/ChatApiClient';
 import { ProductImageApiClient } from './clients/ProductImageApiClient';
 import { ProductRefineApiClient } from './clients/ProductRefineApiClient';
+import { CozeApiClient } from './clients/CozeApiClient';
+import { config } from '../config';
 
 // 创建客户端实例的工厂函数
 export function createImageApiClient() {
@@ -26,6 +29,15 @@ export function createProductImageApiClient() {
 
 export function createProductRefineApiClient() {
   return new ProductRefineApiClient();
+}
+
+export function createCozeApiClient() {
+  return new CozeApiClient(
+    config.coze.baseUrl,
+    config.coze.accessToken,
+    config.coze.bots.dishGenerator,
+    config.coze.bots.promptOptimizer
+  );
 }
 
 // 向后兼容性支持 - 重新导出辅助函数

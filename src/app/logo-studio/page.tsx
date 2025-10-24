@@ -1,8 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { PageHeader } from './components/PageHeader';
-import { StoreFormSection } from './components/StoreFormSection';
+import { StoreInfoCard } from './components/StoreInfoCard';
+import { ManualDishUpload } from './components/ManualDishUpload';
+import { DishUploadModeSelector, UploadMode } from './components/DishUploadModeSelector';
+import { AIDishGenerator } from './components/AIDishGenerator';
 import { TemplateSelector } from './components/TemplateSelector';
 import { ActionPanel } from './components/ActionPanel';
 import { ResultsSection } from './components/results/ResultsSection';
@@ -11,6 +14,9 @@ import { useLogoStudioTemplates } from './hooks/useLogoStudioTemplates';
 import { useLogoStudioGeneration } from './hooks/useLogoStudioGeneration';
 
 export default function LogoStudioPage() {
+  // 上传模式状态（手动上传 vs AI生成）
+  const [uploadMode, setUploadMode] = useState<UploadMode>('manual');
+
   const form = useLogoStudioForm();
   const templates = useLogoStudioTemplates({
     setTemplateStoreName: form.setTemplateStoreName,
@@ -23,6 +29,22 @@ export default function LogoStudioPage() {
     storefrontTemplate: templates.storefrontTemplate,
     posterTemplate: templates.posterTemplate,
   });
+
+  /**
+   * 处理AI生成的图片应用
+   * 将AI生成的File对象设置为菜品图
+   */
+  const handleAIImageApply = (imageFile: File) => {
+    // 使用现有的handleDishImageUpload方法
+    // 需要模拟一个ChangeEvent
+    const mockEvent = {
+      target: {
+        files: [imageFile],
+      },
+    } as React.ChangeEvent<HTMLInputElement>;
+
+    form.handleDishImageUpload(mockEvent);
+  };
 
   const computedFlags = useMemo(() => {
     const hasDish = Boolean(form.dishImage);
@@ -52,14 +74,29 @@ export default function LogoStudioPage() {
       <div className="mx-auto max-w-6xl space-y-6">
         <PageHeader onBack={() => (window.location.href = '/')} />
 
-        <StoreFormSection
+        {/* 门店信息 */}
+        <StoreInfoCard
           storeName={form.storeName}
           templateStoreName={form.templateStoreName}
-          dishImagePreview={form.dishImagePreview}
           onStoreNameChange={form.setStoreName}
           onTemplateStoreNameChange={form.setTemplateStoreName}
-          onDishImageChange={form.handleDishImageUpload}
         />
+
+        {/* 上传模式选择 */}
+        <DishUploadModeSelector mode={uploadMode} onChange={setUploadMode} />
+
+        {/* 菜品图上传/生成 */}
+        {uploadMode === 'manual' ? (
+          <ManualDishUpload
+            dishImagePreview={form.dishImagePreview}
+            onDishImageChange={form.handleDishImageUpload}
+          />
+        ) : (
+          <AIDishGenerator
+            onApplyImage={handleAIImageApply}
+            onModeChange={() => setUploadMode('manual')}
+          />
+        )}
 
         <TemplateSelector
           loading={templates.loadingTemplates}
