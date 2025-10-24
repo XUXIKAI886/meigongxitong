@@ -2,7 +2,6 @@ import type { Buffer } from 'buffer';
 import type {
   PictureWallResponse,
   ReversePromptResponse,
-  GenerateProductRequest,
 } from './index';
 
 export interface ImageJobResult {
@@ -68,42 +67,6 @@ export interface PictureWallJobPayload {
 }
 
 export type PictureWallJobResult = PictureWallResponse;
-
-export type GenerateProductJobPayload = Pick<
-  GenerateProductRequest,
-  'sourceImageBuffer' | 'sourceImageType' | 'background' | 'enhance' | 'outputSize'
->;
-
-export type ProductGenerationJobResult = ImageJobResult;
-
-export interface ProductRefineJobPayload {
-  sourceImageBuffer: string;
-  sourceImageType: string;
-  prompt: string;
-}
-
-export type ProductRefineJobResult = ImageJobResult;
-
-export interface BatchProductRefineJobPayload {
-  sourceImageBuffers: string[];
-  sourceImageTypes: string[];
-  prompt: string;
-  outputFolder: string;
-}
-
-export interface BatchProductRefineResultItem {
-  index: number;
-  fileName?: string;
-  filePath?: string;
-  success: boolean;
-  error?: string;
-}
-
-export interface BatchProductRefineJobResult {
-  processedCount: number;
-  outputFolder: string;
-  results: BatchProductRefineResultItem[];
-}
 
 export interface SignboardReplaceTextJobPayload {
   sourceImageBuffer: string;
