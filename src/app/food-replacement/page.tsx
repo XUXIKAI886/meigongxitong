@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { useFoodReplacement } from './hooks/useFoodReplacement';
 import { useTemplates } from './hooks/useTemplates';
 import { useImageUpload } from './hooks/useImageUpload';
@@ -141,6 +141,59 @@ export default function FoodReplacementPage() {
   // 新增：正在重新生成的结果索引（-1表示无）
   const [regeneratingIndex, setRegeneratingIndex] = useState<number>(-1);
 
+  // 新增：任务队列机制（确保重新生成操作按顺序执行）
+  type TaskType = 'recut' | 'regenerate';
+  interface Task {
+    type: TaskType;
+    index: number;
+    execute: () => Promise<void>;
+  }
+
+  const taskQueueRef = useRef<Task[]>([]);
+  const [isTaskExecuting, setIsTaskExecuting] = useState(false);
+
+  // 队列执行器
+  const executeNextTask = useCallback(async () => {
+    if (isTaskExecuting || taskQueueRef.current.length === 0) {
+      return;
+    }
+
+    const task = taskQueueRef.current.shift();
+    if (!task) return;
+
+    console.log(`[队列] 开始执行任务: ${task.type} (索引: ${task.index}), 队列剩余: ${taskQueueRef.current.length}`);
+    setIsTaskExecuting(true);
+
+    try {
+      await task.execute();
+      console.log(`[队列] 任务完成: ${task.type} (索引: ${task.index})`);
+    } catch (error) {
+      console.error(`[队列] 任务失败: ${task.type} (索引: ${task.index})`, error);
+    } finally {
+      setIsTaskExecuting(false);
+    }
+  }, [isTaskExecuting]);
+
+  // 监听队列执行状态，自动执行下一个任务
+  useEffect(() => {
+    if (!isTaskExecuting && taskQueueRef.current.length > 0) {
+      console.log(`[队列] 自动触发下一个任务，队列长度: ${taskQueueRef.current.length}`);
+      executeNextTask();
+    }
+  }, [isTaskExecuting, executeNextTask]);
+
+  // 添加任务到队列
+  const addTaskToQueue = useCallback((type: TaskType, index: number, execute: () => Promise<void>) => {
+    const task: Task = { type, index, execute };
+    taskQueueRef.current.push(task);
+    console.log(`[队列] 添加任务: ${type} (索引: ${index}), 队列长度: ${taskQueueRef.current.length}`);
+
+    // 如果当前没有任务在执行，立即执行
+    if (!isTaskExecuting) {
+      executeNextTask();
+    }
+  }, [isTaskExecuting, executeNextTask]);
+
   // 监听抠图结果变化，自动生成预览URLs
   useEffect(() => {
     const { cutoutResults } = batchCutout;
@@ -258,172 +311,178 @@ export default function FoodReplacementPage() {
     console.log(`[handleApplyCutout] ${isBatchMode ? '批量' : '单张'}应用完成`);
   }, [isBatchMode, batchCutout, replaceBatchSourceImage, replaceSourceImage]);
 
-  // 新增：重新抠图单张图片（支持单张和批量模式）
+  // 新增：重新抠图单张图片（支持单张和批量模式）- 改造为队列模式
   const handleRecutImage = useCallback(async (index: number) => {
-    const imageToRecut = isBatchMode ? sourceImages[index] : sourceImage;
+    // 将任务加入队列
+    addTaskToQueue('recut', index, async () => {
+      const imageToRecut = isBatchMode ? sourceImages[index] : sourceImage;
 
-    if (!imageToRecut) {
-      console.error('[handleRecutImage] 没有可重新抠图的图片');
-      return;
-    }
-
-    if (isBatchMode && (index < 0 || index >= sourceImages.length)) {
-      console.error('[handleRecutImage] 索引越界:', index);
-      return;
-    }
-
-    console.log(`[handleRecutImage] 开始重新抠图${isBatchMode ? `第 ${index + 1} 张` : ''}`);
-    setRecutingIndex(index);
-
-    try {
-      await batchCutout.recutSingleImage(index, imageToRecut);
-      console.log(`[handleRecutImage] ${isBatchMode ? `第 ${index + 1} 张` : ''}重新抠图成功`);
-    } catch (error) {
-      console.error(`[handleRecutImage] ${isBatchMode ? `第 ${index + 1} 张` : ''}重新抠图失败:`, error);
-      alert(`重新抠图失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    } finally {
-      setRecutingIndex(-1);
-    }
-  }, [isBatchMode, sourceImage, sourceImages, batchCutout]);
-
-  // 新增：重新生成单张图片
-  const handleRegenerateImage = useCallback(async (result: FoodReplacementResult, resultIndex: number) => {
-    console.log(`[handleRegenerateImage] 开始重新生成第 ${resultIndex + 1} 张图片`);
-    console.log('结果详情:', result);
-
-    setRegeneratingIndex(resultIndex);
-
-    try {
-      // 1. 找到对应的源图片
-      let sourceImageFile: File | null = null;
-
-      if (result.sourceImageIndex !== undefined) {
-        // 批量模式：根据sourceImageIndex找到对应的源图片
-        if (isBatchMode && sourceImages[result.sourceImageIndex]) {
-          sourceImageFile = sourceImages[result.sourceImageIndex];
-        } else if (!isBatchMode && sourceImage) {
-          // 单张模式
-          sourceImageFile = sourceImage;
-        }
-      } else {
-        // 如果没有sourceImageIndex，使用当前的源图片
-        sourceImageFile = isBatchMode ? sourceImages[0] : sourceImage;
+      if (!imageToRecut) {
+        console.error('[handleRecutImage] 没有可重新抠图的图片');
+        return;
       }
 
-      if (!sourceImageFile) {
-        throw new Error('无法找到对应的源图片');
+      if (isBatchMode && (index < 0 || index >= sourceImages.length)) {
+        console.error('[handleRecutImage] 索引越界:', index);
+        return;
       }
 
-      console.log('找到源图片:', sourceImageFile.name);
+      console.log(`[handleRecutImage] 开始重新抠图${isBatchMode ? `第 ${index + 1} 张` : ''}`);
+      setRecutingIndex(index);
 
-      // 2. 获取当前的目标图片
-      const targetImageFile = isBatchMode ? batchTargetImage : targetImage;
-      if (!targetImageFile && !selectedTemplate) {
-        throw new Error('无法找到目标图片或模板');
-      }
-
-      // 3. 压缩源图片（解决Vercel 4.5MB限制）
-      let imageToUpload: File | Blob = sourceImageFile;
       try {
-        console.log(`开始压缩图片，原始大小: ${(sourceImageFile.size / 1024 / 1024).toFixed(2)}MB`);
-        const compressedBlob = await compressImage(sourceImageFile);
-        console.log(`压缩完成，压缩后大小: ${(compressedBlob.size / 1024 / 1024).toFixed(2)}MB`);
-        imageToUpload = new File([compressedBlob], sourceImageFile.name, { type: 'image/jpeg' });
-      } catch (compressError) {
-        console.warn(`图片压缩失败，使用原图:`, compressError);
-        // 压缩失败时使用原图
-        imageToUpload = sourceImageFile;
+        await batchCutout.recutSingleImage(index, imageToRecut);
+        console.log(`[handleRecutImage] ${isBatchMode ? `第 ${index + 1} 张` : ''}重新抠图成功`);
+      } catch (error) {
+        console.error(`[handleRecutImage] ${isBatchMode ? `第 ${index + 1} 张` : ''}重新抠图失败:`, error);
+        alert(`重新抠图失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      } finally {
+        setRecutingIndex(-1);
       }
+    });
+  }, [isBatchMode, sourceImage, sourceImages, batchCutout, addTaskToQueue]);
 
-      // 4. 创建FormData
-      const formData = new FormData();
-      formData.append('sourceImage', imageToUpload);
+  // 新增：重新生成单张图片 - 改造为队列模式
+  const handleRegenerateImage = useCallback(async (result: FoodReplacementResult, resultIndex: number) => {
+    // 将任务加入队列
+    addTaskToQueue('regenerate', resultIndex, async () => {
+      console.log(`[handleRegenerateImage] 开始重新生成第 ${resultIndex + 1} 张图片`);
+      console.log('结果详情:', result);
 
-      if (selectedTemplate) {
-        formData.append('targetImageUrl', selectedTemplate.url);
-        console.log('使用模板:', selectedTemplate.name);
-      } else if (targetImageFile) {
-        formData.append('targetImage', targetImageFile);
-        console.log('使用上传的目标图片');
-      }
+      setRegeneratingIndex(resultIndex);
 
-      // 4. 调用API
-      console.log('开始调用API重新生成...');
-      const response = await fetch('/api/food-replacement', {
-        method: 'POST',
-        body: formData,
-      });
+      try {
+        // 1. 找到对应的源图片
+        let sourceImageFile: File | null = null;
 
-      const data = await response.json();
-      console.log('API响应:', data);
-
-      if (data.ok && data.data && data.data.imageUrl) {
-        // Vercel同步模式: 直接处理结果
-        console.log('检测到同步响应，更新结果');
-        const updatedResult: FoodReplacementResult = {
-          ...result,
-          imageUrl: data.data.imageUrl,
-          width: data.data.width,
-          height: data.data.height,
-          processedAt: new Date().toISOString(),
-        };
-
-        updateResult(resultIndex, updatedResult);
-        console.log('✓ 重新生成成功');
-      } else if (data.ok && data.jobId) {
-        // 本地异步模式: 轮询等待作业完成
-        console.log('检测到异步作业，jobId:', data.jobId);
-
-        const maxAttempts = 150; // 5分钟
-        let attempts = 0;
-        let jobCompleted = false;
-
-        while (attempts < maxAttempts && !jobCompleted) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          attempts++;
-
-          try {
-            const jobResponse = await fetch(`/api/jobs/${data.jobId}`);
-            const jobData = await jobResponse.json();
-
-            console.log(`轮询 (${attempts}/${maxAttempts}):`, jobData.job?.status);
-
-            if (jobData.ok && jobData.job) {
-              if (jobData.job.status === 'succeeded' && jobData.job.result) {
-                // 作业成功完成
-                const updatedResult: FoodReplacementResult = {
-                  ...result,
-                  imageUrl: jobData.job.result.imageUrl,
-                  width: jobData.job.result.width,
-                  height: jobData.job.result.height,
-                  processedAt: new Date().toISOString(),
-                };
-
-                updateResult(resultIndex, updatedResult);
-                jobCompleted = true;
-                console.log('✓ 异步作业完成，重新生成成功');
-              } else if (jobData.job.status === 'failed') {
-                throw new Error(jobData.job.error || '处理失败');
-              }
-            }
-          } catch (pollError) {
-            console.error('轮询错误:', pollError);
+        if (result.sourceImageIndex !== undefined) {
+          // 批量模式：根据sourceImageIndex找到对应的源图片
+          if (isBatchMode && sourceImages[result.sourceImageIndex]) {
+            sourceImageFile = sourceImages[result.sourceImageIndex];
+          } else if (!isBatchMode && sourceImage) {
+            // 单张模式
+            sourceImageFile = sourceImage;
           }
+        } else {
+          // 如果没有sourceImageIndex，使用当前的源图片
+          sourceImageFile = isBatchMode ? sourceImages[0] : sourceImage;
         }
 
-        if (!jobCompleted) {
-          throw new Error('处理超时，请重试');
+        if (!sourceImageFile) {
+          throw new Error('无法找到对应的源图片');
         }
-      } else {
-        throw new Error(data.error || '处理失败');
+
+        console.log('找到源图片:', sourceImageFile.name);
+
+        // 2. 获取当前的目标图片
+        const targetImageFile = isBatchMode ? batchTargetImage : targetImage;
+        if (!targetImageFile && !selectedTemplate) {
+          throw new Error('无法找到目标图片或模板');
+        }
+
+        // 3. 压缩源图片（解决Vercel 4.5MB限制）
+        let imageToUpload: File | Blob = sourceImageFile;
+        try {
+          console.log(`开始压缩图片，原始大小: ${(sourceImageFile.size / 1024 / 1024).toFixed(2)}MB`);
+          const compressedBlob = await compressImage(sourceImageFile);
+          console.log(`压缩完成，压缩后大小: ${(compressedBlob.size / 1024 / 1024).toFixed(2)}MB`);
+          imageToUpload = new File([compressedBlob], sourceImageFile.name, { type: 'image/jpeg' });
+        } catch (compressError) {
+          console.warn(`图片压缩失败，使用原图:`, compressError);
+          // 压缩失败时使用原图
+          imageToUpload = sourceImageFile;
+        }
+
+        // 4. 创建FormData
+        const formData = new FormData();
+        formData.append('sourceImage', imageToUpload);
+
+        if (selectedTemplate) {
+          formData.append('targetImageUrl', selectedTemplate.url);
+          console.log('使用模板:', selectedTemplate.name);
+        } else if (targetImageFile) {
+          formData.append('targetImage', targetImageFile);
+          console.log('使用上传的目标图片');
+        }
+
+        // 5. 调用API
+        console.log('开始调用API重新生成...');
+        const response = await fetch('/api/food-replacement', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await response.json();
+        console.log('API响应:', data);
+
+        if (data.ok && data.data && data.data.imageUrl) {
+          // Vercel同步模式: 直接处理结果
+          console.log('检测到同步响应，更新结果');
+          const updatedResult: FoodReplacementResult = {
+            ...result,
+            imageUrl: data.data.imageUrl,
+            width: data.data.width,
+            height: data.data.height,
+            processedAt: new Date().toISOString(),
+          };
+
+          updateResult(resultIndex, updatedResult);
+          console.log('✓ 重新生成成功');
+        } else if (data.ok && data.jobId) {
+          // 本地异步模式: 轮询等待作业完成
+          console.log('检测到异步作业，jobId:', data.jobId);
+
+          const maxAttempts = 150; // 5分钟
+          let attempts = 0;
+          let jobCompleted = false;
+
+          while (attempts < maxAttempts && !jobCompleted) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            attempts++;
+
+            try {
+              const jobResponse = await fetch(`/api/jobs/${data.jobId}`);
+              const jobData = await jobResponse.json();
+
+              console.log(`轮询 (${attempts}/${maxAttempts}):`, jobData.job?.status);
+
+              if (jobData.ok && jobData.job) {
+                if (jobData.job.status === 'succeeded' && jobData.job.result) {
+                  // 作业成功完成
+                  const updatedResult: FoodReplacementResult = {
+                    ...result,
+                    imageUrl: jobData.job.result.imageUrl,
+                    width: jobData.job.result.width,
+                    height: jobData.job.result.height,
+                    processedAt: new Date().toISOString(),
+                  };
+
+                  updateResult(resultIndex, updatedResult);
+                  jobCompleted = true;
+                  console.log('✓ 异步作业完成，重新生成成功');
+                } else if (jobData.job.status === 'failed') {
+                  throw new Error(jobData.job.error || '处理失败');
+                }
+              }
+            } catch (pollError) {
+              console.error('轮询错误:', pollError);
+            }
+          }
+
+          if (!jobCompleted) {
+            throw new Error('处理超时，请重试');
+          }
+        } else {
+          throw new Error(data.error || '处理失败');
+        }
+      } catch (error) {
+        console.error('[handleRegenerateImage] 重新生成失败:', error);
+        alert(`重新生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      } finally {
+        setRegeneratingIndex(-1);
       }
-    } catch (error) {
-      console.error('[handleRegenerateImage] 重新生成失败:', error);
-      alert(`重新生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    } finally {
-      setRegeneratingIndex(-1);
-    }
-  }, [isBatchMode, sourceImage, sourceImages, batchTargetImage, targetImage, selectedTemplate, updateResult]);
+    });
+  }, [isBatchMode, sourceImage, sourceImages, batchTargetImage, targetImage, selectedTemplate, updateResult, addTaskToQueue]);
 
   // 开始处理
   const handleStartProcessing = async () => {

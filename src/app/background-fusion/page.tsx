@@ -118,6 +118,59 @@ export default function BackgroundFusionPage() {
   // 正在重新抠图的图片索引（-1表示无）
   const [recutingIndex, setRecutingIndex] = useState<number>(-1);
 
+  // 新增：任务队列机制（确保重新抠图操作按顺序执行）
+  type TaskType = 'recut';
+  interface Task {
+    type: TaskType;
+    index: number;
+    execute: () => Promise<void>;
+  }
+
+  const taskQueueRef = useRef<Task[]>([]);
+  const [isTaskExecuting, setIsTaskExecuting] = useState(false);
+
+  // 队列执行器
+  const executeNextTask = useCallback(async () => {
+    if (isTaskExecuting || taskQueueRef.current.length === 0) {
+      return;
+    }
+
+    const task = taskQueueRef.current.shift();
+    if (!task) return;
+
+    console.log(`[队列] 开始执行任务: ${task.type} (索引: ${task.index}), 队列剩余: ${taskQueueRef.current.length}`);
+    setIsTaskExecuting(true);
+
+    try {
+      await task.execute();
+      console.log(`[队列] 任务完成: ${task.type} (索引: ${task.index})`);
+    } catch (error) {
+      console.error(`[队列] 任务失败: ${task.type} (索引: ${task.index})`, error);
+    } finally {
+      setIsTaskExecuting(false);
+    }
+  }, [isTaskExecuting]);
+
+  // 监听队列执行状态，自动执行下一个任务
+  useEffect(() => {
+    if (!isTaskExecuting && taskQueueRef.current.length > 0) {
+      console.log(`[队列] 自动触发下一个任务，队列长度: ${taskQueueRef.current.length}`);
+      executeNextTask();
+    }
+  }, [isTaskExecuting, executeNextTask]);
+
+  // 添加任务到队列
+  const addTaskToQueue = useCallback((type: TaskType, index: number, execute: () => Promise<void>) => {
+    const task: Task = { type, index, execute };
+    taskQueueRef.current.push(task);
+    console.log(`[队列] 添加任务: ${type} (索引: ${index}), 队列长度: ${taskQueueRef.current.length}`);
+
+    // 如果当前没有任务在执行，立即执行
+    if (!isTaskExecuting) {
+      executeNextTask();
+    }
+  }, [isTaskExecuting, executeNextTask]);
+
   // 监听抠图结果变化，自动生成预览URLs
   useEffect(() => {
     const { cutoutResults } = batchCutout;
@@ -410,33 +463,36 @@ export default function BackgroundFusionPage() {
     console.log(`[handleApplyCutout] ${isBatchMode ? '批量' : '单张'}应用完成`);
   }, [isBatchMode, batchCutout, replaceBatchSourceImage, replaceSourceImage]);
 
-  // 重新抠图单张图片（支持单张和批量模式）
+  // 重新抠图单张图片（支持单张和批量模式）- 改造为队列模式
   const handleRecutImage = useCallback(async (index: number) => {
-    const imageToRecut = isBatchMode ? sourceImages[index] : sourceImage;
+    // 将任务加入队列
+    addTaskToQueue('recut', index, async () => {
+      const imageToRecut = isBatchMode ? sourceImages[index] : sourceImage;
 
-    if (!imageToRecut) {
-      console.error('[handleRecutImage] 没有可重新抠图的图片');
-      return;
-    }
+      if (!imageToRecut) {
+        console.error('[handleRecutImage] 没有可重新抠图的图片');
+        return;
+      }
 
-    if (isBatchMode && (index < 0 || index >= sourceImages.length)) {
-      console.error('[handleRecutImage] 索引越界:', index);
-      return;
-    }
+      if (isBatchMode && (index < 0 || index >= sourceImages.length)) {
+        console.error('[handleRecutImage] 索引越界:', index);
+        return;
+      }
 
-    console.log(`[handleRecutImage] 开始重新抠图${isBatchMode ? `第 ${index + 1} 张` : ''}`);
-    setRecutingIndex(index);
+      console.log(`[handleRecutImage] 开始重新抠图${isBatchMode ? `第 ${index + 1} 张` : ''}`);
+      setRecutingIndex(index);
 
-    try {
-      await batchCutout.recutSingleImage(index, imageToRecut);
-      console.log(`[handleRecutImage] ${isBatchMode ? `第 ${index + 1} 张` : ''}重新抠图成功`);
-    } catch (error) {
-      console.error(`[handleRecutImage] ${isBatchMode ? `第 ${index + 1} 张` : ''}重新抠图失败:`, error);
-      alert(`重新抠图失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    } finally {
-      setRecutingIndex(-1);
-    }
-  }, [isBatchMode, sourceImage, sourceImages, batchCutout]);
+      try {
+        await batchCutout.recutSingleImage(index, imageToRecut);
+        console.log(`[handleRecutImage] ${isBatchMode ? `第 ${index + 1} 张` : ''}重新抠图成功`);
+      } catch (error) {
+        console.error(`[handleRecutImage] ${isBatchMode ? `第 ${index + 1} 张` : ''}重新抠图失败:`, error);
+        alert(`重新抠图失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      } finally {
+        setRecutingIndex(-1);
+      }
+    });
+  }, [isBatchMode, sourceImage, sourceImages, batchCutout, addTaskToQueue]);
 
   // 轮询任务状态
   const pollJobStatus = async (jobId: string, fileNames?: string[]) => {
