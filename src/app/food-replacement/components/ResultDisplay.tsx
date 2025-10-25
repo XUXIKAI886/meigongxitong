@@ -109,9 +109,11 @@ export default function ResultDisplay({
                         size="sm"
                         className="bg-white shadow-lg"
                         onClick={() => onRegenerate(result, index)}
+                        disabled={regeneratingIndex !== -1}
+                        title={regeneratingIndex !== -1 ? '正在处理其他图片，请稍候...' : '重新生成'}
                       >
                         <RefreshCwIcon className="w-4 h-4 mr-1" />
-                        重新生成
+                        {regeneratingIndex !== -1 ? '请稍候...' : '重新生成'}
                       </Button>
                     )}
 

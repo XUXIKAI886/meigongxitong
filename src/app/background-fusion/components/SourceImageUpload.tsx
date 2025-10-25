@@ -178,10 +178,16 @@ export default function SourceImageUpload({
                                   variant="default"
                                   size="sm"
                                   onClick={() => onRecutImage(index)}
-                                  className="pointer-events-auto bg-white hover:bg-gray-100 text-gray-800"
+                                  disabled={recutingIndex !== -1}
+                                  className={`pointer-events-auto ${
+                                    recutingIndex !== -1
+                                      ? 'bg-gray-400 cursor-not-allowed opacity-50'
+                                      : 'bg-white hover:bg-gray-100 text-gray-800'
+                                  }`}
+                                  title={recutingIndex !== -1 ? '正在处理其他图片，请稍候...' : '重新抠图'}
                                 >
                                   <RefreshCwIcon className="w-4 h-4 mr-1" />
-                                  重新抠图
+                                  {recutingIndex !== -1 ? '请稍候...' : '重新抠图'}
                                 </Button>
                               )}
                             </div>
@@ -312,10 +318,16 @@ export default function SourceImageUpload({
                               variant="default"
                               size="sm"
                               onClick={() => onRecutImage(0)}
-                              className="pointer-events-auto bg-white hover:bg-gray-100 text-gray-800"
+                              disabled={recutingIndex !== -1}
+                              className={`pointer-events-auto ${
+                                recutingIndex !== -1
+                                  ? 'bg-gray-400 cursor-not-allowed opacity-50'
+                                  : 'bg-white hover:bg-gray-100 text-gray-800'
+                              }`}
+                              title={recutingIndex !== -1 ? '正在处理中，请稍候...' : '重新抠图'}
                             >
                               <RefreshCwIcon className="w-4 h-4 mr-1" />
-                              重新抠图
+                              {recutingIndex !== -1 ? '请稍候...' : '重新抠图'}
                             </Button>
                           )}
                         </div>
