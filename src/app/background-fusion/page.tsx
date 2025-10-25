@@ -911,27 +911,27 @@ export default function BackgroundFusionPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-10">
         {/* 页面标题和导航 */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-10">
           <div>
-            <div className="flex items-center gap-4 mb-2">
+            <div className="flex items-center gap-4 mb-3">
               <Link href="/">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="transition-all hover:scale-105">
                   <ArrowLeftIcon className="w-4 h-4 mr-2" />
                   返回首页
                 </Button>
               </Link>
-              <div className="h-6 border-l border-gray-300"></div>
-              <h1 className="text-2xl font-bold text-gray-800">背景融合工具</h1>
+              <div className="h-6 border-l-2 border-gray-300"></div>
+              <h1 className="text-3xl font-bold text-gray-900">背景融合工具</h1>
             </div>
-            <p className="text-gray-600">将源图片中的美食完美融合到目标背景中，创造令人垂涎的视觉效果</p>
+            <p className="text-gray-600 text-base leading-relaxed">将源图片中的美食完美融合到目标背景中，创造令人垂涎的视觉效果</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* 左侧 - 配置区域 */}
-          <div className="xl:col-span-2 space-y-6">
+          <div className="xl:col-span-2 space-y-8">
             <BatchModeToggle
               isBatchMode={isBatchMode}
               onToggle={(mode) => setIsBatchMode(mode)}
@@ -982,12 +982,12 @@ export default function BackgroundFusionPage() {
             </div>
 
             {/* 开始处理按钮 */}
-            <div className="flex justify-center">
+            <div className="flex justify-center pt-4">
               <Button
                 onClick={handleBackgroundFusion}
                 disabled={!canStartProcessing || isProcessing}
                 size="lg"
-                className="min-w-[200px] bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
+                className="min-w-[220px] h-12 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
               >
                 {isProcessing ? '处理中...' : '开始背景融合'}
                 <ArrowRightIcon className="w-5 h-5 ml-2" />
@@ -996,7 +996,7 @@ export default function BackgroundFusionPage() {
           </div>
 
           {/* 右侧 - 状态和结果区域 */}
-          <div className="space-y-6">
+          <div className="space-y-8">
             <ProcessingStatus
               isProcessing={isProcessing}
               statusMessage={statusMessage}

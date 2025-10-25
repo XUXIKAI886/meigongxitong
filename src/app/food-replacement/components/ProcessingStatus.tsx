@@ -16,13 +16,13 @@ export default function ProcessingStatus({ isProcessing, jobStatus }: Processing
     switch (status) {
       case 'pending':
       case 'queued':
-        return <Badge variant="secondary">排队中</Badge>;
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-700">⏳ 排队中</Badge>;
       case 'running':
-        return <Badge variant="default" className="bg-blue-500">处理中</Badge>;
+        return <Badge variant="default" className="bg-orange-500">✨ 处理中</Badge>;
       case 'succeeded':
-        return <Badge variant="default" className="bg-green-500">完成</Badge>;
+        return <Badge variant="default" className="bg-green-500">✅ 完成</Badge>;
       case 'failed':
-        return <Badge variant="destructive">失败</Badge>;
+        return <Badge variant="destructive">❌ 失败</Badge>;
       default:
         return <Badge variant="outline">未知状态</Badge>;
     }
@@ -45,48 +45,51 @@ export default function ProcessingStatus({ isProcessing, jobStatus }: Processing
   };
 
   return (
-    <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
+    <Card className="border-orange-200 bg-gradient-to-r from-orange-50 to-red-50 shadow-md">
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center justify-between text-lg">
           <div className="flex items-center gap-2">
             {isProcessing && jobStatus?.status === 'running' ? (
-              <RefreshCwIcon className="w-5 h-5 animate-spin text-blue-600" />
+              <RefreshCwIcon className="w-5 h-5 animate-spin text-orange-600" />
             ) : (
-              <SparklesIcon className="w-5 h-5 text-blue-600" />
+              <SparklesIcon className="w-5 h-5 text-orange-600" />
             )}
-            处理状态
+            <span className="text-gray-900">处理状态</span>
           </div>
           {jobStatus && getStatusBadge(jobStatus.status)}
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <p className="text-sm text-gray-700">
-            {jobStatus ? getStatusText(jobStatus.status) : '准备开始处理...'}
-          </p>
+      <CardContent className="space-y-5">
+        <p className="text-sm text-gray-700 font-medium leading-relaxed">
+          {jobStatus ? getStatusText(jobStatus.status) : '准备开始处理...'}
+        </p>
 
-          {jobStatus && (
-            <>
+        {jobStatus && (
+          <>
+            <div className="space-y-3">
               <Progress
                 value={jobStatus.progress || 0}
-                className="w-full"
+                className="w-full h-2.5"
               />
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>进度: {jobStatus.progress || 0}%</span>
-                {jobStatus.result?.processedCount && (
-                  <span>已处理: {jobStatus.result.processedCount} 张</span>
-                )}
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">进度</span>
+                <span className="font-semibold text-orange-600">{jobStatus.progress || 0}%</span>
               </div>
-            </>
-          )}
-
-          {jobStatus?.status === 'failed' && jobStatus.error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-700">错误详情:</p>
-              <p className="text-xs text-red-600 mt-1">{jobStatus.error}</p>
+              {jobStatus.result?.processedCount && (
+                <div className="text-xs text-gray-500">
+                  已处理: {jobStatus.result.processedCount} 张
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
+
+        {jobStatus?.status === 'failed' && jobStatus.error && (
+          <div className="mt-4 p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+            <p className="text-sm font-semibold text-red-700">错误详情:</p>
+            <p className="text-xs text-red-600 mt-2 leading-relaxed">{jobStatus.error}</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
