@@ -22,4 +22,5 @@ export const templateStoreNameMap: Record<string, string> = {
   '通用-20': '百草鲜卤铺',
   '通用-21': '巧小煲猪脚饭',
   '通用-22': '盖饭先生',
+  '通用-23': '燃小面',
 };
