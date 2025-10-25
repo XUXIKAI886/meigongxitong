@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeftIcon, ArrowRightIcon, ImageIcon } from 'lucide-react';
+import { useBatchCutout } from '../food-replacement/hooks/useBatchCutout';
 import BatchModeToggle from './components/BatchModeToggle';
 import SourceImageUpload from './components/SourceImageUpload';
 import TargetImageUpload from './components/TargetImageUpload';
@@ -47,6 +48,46 @@ export default function BackgroundFusionPage() {
 
   // 保存原始文件名的ref (避免闭包问题)
   const fileNamesRef = useRef<string[]>([]);
+
+  // 批量抠图Hook
+  const batchCutout = useBatchCutout();
+
+  // 抠图结果预览URLs状态管理
+  const [cutoutResultPreviews, setCutoutResultPreviews] = useState<string[]>([]);
+
+  // 正在重新抠图的图片索引（-1表示无）
+  const [recutingIndex, setRecutingIndex] = useState<number>(-1);
+
+  // 监听抠图结果变化，自动生成预览URLs
+  useEffect(() => {
+    const { cutoutResults } = batchCutout;
+    if (cutoutResults.length === 0) {
+      setCutoutResultPreviews([]);
+      return;
+    }
+
+    // 生成预览URLs
+    const previews: string[] = [];
+    cutoutResults.forEach((file) => {
+      if (file) {
+        const url = URL.createObjectURL(file);
+        previews.push(url);
+      } else {
+        previews.push('');
+      }
+    });
+
+    setCutoutResultPreviews(previews);
+
+    // 清理旧的blob URLs
+    return () => {
+      previews.forEach((url) => {
+        if (url && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [batchCutout.cutoutResults]);
 
   // 加载美团风格
   const loadMeituanTemplates = async () => {
@@ -207,6 +248,135 @@ export default function BackgroundFusionPage() {
     setSourceImages(prev => prev.filter((_, i) => i !== index));
     setSourceImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
+
+  // 替换批量模式中指定索引的图片（用于抠图后替换）
+  const replaceBatchSourceImage = useCallback((index: number, newFile: File) => {
+    setSourceImages(prevImages => {
+      const newImages = [...prevImages];
+      newImages[index] = newFile;
+      return newImages;
+    });
+
+    // 更新预览
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSourceImagePreviews(prevPreviews => {
+        const newPreviews = [...prevPreviews];
+        // 释放旧预览URL（如果是blob URL）
+        if (prevPreviews[index] && prevPreviews[index].startsWith('blob:')) {
+          URL.revokeObjectURL(prevPreviews[index]);
+        }
+        newPreviews[index] = reader.result as string;
+        return newPreviews;
+      });
+    };
+    reader.readAsDataURL(newFile);
+  }, []);
+
+  // 替换单张模式的源图片（用于抠图后替换）
+  const replaceSourceImage = useCallback((newFile: File) => {
+    setSourceImage(newFile);
+
+    // 更新预览
+    const reader = new FileReader();
+    reader.onload = () => {
+      // 释放旧预览URL（如果是blob URL）
+      if (sourceImagePreview && sourceImagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(sourceImagePreview);
+      }
+      setSourceImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(newFile);
+  }, [sourceImagePreview]);
+
+  // 处理批量抠图（支持单张和批量模式）
+  const handleBatchCutout = useCallback(async () => {
+    // 单张模式：检查sourceImage
+    // 批量模式：检查sourceImages数组
+    const imagesToCutout = isBatchMode ? sourceImages : (sourceImage ? [sourceImage] : []);
+
+    if (imagesToCutout.length === 0) {
+      alert('请先上传源图片');
+      return;
+    }
+
+    console.log(`[handleBatchCutout] 开始${isBatchMode ? '批量' : '单张'}抠图`);
+
+    // 调用batchCutout
+    await batchCutout.batchCutout(imagesToCutout);
+
+    // 显示完成提示
+    const { successCount, failedCount } = batchCutout;
+    alert(
+      `${isBatchMode ? '批量' : ''}抠图完成！\n\n` +
+      `✓ 成功: ${successCount}/${imagesToCutout.length}\n` +
+      (failedCount > 0 ? `✗ 失败: ${failedCount}` : '') +
+      `\n\n请查看下方的抠图结果预览，确认无误后点击"一键应用"按钮。`
+    );
+
+    console.log(`[handleBatchCutout] ${isBatchMode ? '批量' : '单张'}抠图完成`);
+  }, [isBatchMode, sourceImage, sourceImages, batchCutout]);
+
+  // 应用抠图结果（支持单张和批量模式）
+  const handleApplyCutout = useCallback(() => {
+    const { cutoutResults } = batchCutout;
+    if (cutoutResults.length === 0) {
+      alert('没有可应用的抠图结果');
+      return;
+    }
+
+    console.log(`[handleApplyCutout] 开始应用${isBatchMode ? '批量' : '单张'}抠图结果`);
+
+    if (isBatchMode) {
+      // 批量模式：替换所有源图片
+      cutoutResults.forEach((cutoutFile, index) => {
+        if (cutoutFile) {
+          replaceBatchSourceImage(index, cutoutFile);
+          console.log(`✓ 第${index + 1}张已应用:`, cutoutFile.name);
+        }
+      });
+    } else {
+      // 单张模式：替换源图片
+      if (cutoutResults[0]) {
+        replaceSourceImage(cutoutResults[0]);
+        console.log('✓ 单张图片已应用:', cutoutResults[0].name);
+      }
+    }
+
+    // 清空抠图结果和预览
+    batchCutout.clearCutoutResults();
+    setCutoutResultPreviews([]);
+
+    console.log(`[handleApplyCutout] ${isBatchMode ? '批量' : '单张'}应用完成`);
+  }, [isBatchMode, batchCutout, replaceBatchSourceImage, replaceSourceImage]);
+
+  // 重新抠图单张图片（支持单张和批量模式）
+  const handleRecutImage = useCallback(async (index: number) => {
+    const imageToRecut = isBatchMode ? sourceImages[index] : sourceImage;
+
+    if (!imageToRecut) {
+      console.error('[handleRecutImage] 没有可重新抠图的图片');
+      return;
+    }
+
+    if (isBatchMode && (index < 0 || index >= sourceImages.length)) {
+      console.error('[handleRecutImage] 索引越界:', index);
+      return;
+    }
+
+    console.log(`[handleRecutImage] 开始重新抠图${isBatchMode ? `第 ${index + 1} 张` : ''}`);
+    setRecutingIndex(index);
+
+    try {
+      await batchCutout.recutSingleImage(index, imageToRecut);
+      console.log(`[handleRecutImage] ${isBatchMode ? `第 ${index + 1} 张` : ''}重新抠图成功`);
+    } catch (error) {
+      console.error(`[handleRecutImage] ${isBatchMode ? `第 ${index + 1} 张` : ''}重新抠图失败:`, error);
+      alert(`重新抠图失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    } finally {
+      setRecutingIndex(-1);
+    }
+  }, [isBatchMode, sourceImage, sourceImages, batchCutout]);
 
   // 轮询任务状态
   const pollJobStatus = async (jobId: string, fileNames?: string[]) => {
@@ -529,6 +699,18 @@ export default function BackgroundFusionPage() {
                 sourceImages={sourceImages}
                 sourceImagePreviews={sourceImagePreviews}
                 onRemoveBatchImage={removeBatchSourceImage}
+                // 批量抠图props
+                onStartBatchCutout={handleBatchCutout}
+                isCutting={batchCutout.isCutting}
+                cutoutProgress={batchCutout.cutoutProgress}
+                currentImageIndex={batchCutout.currentImageIndex}
+                // 抠图结果展示与应用props
+                cutoutResults={batchCutout.cutoutResults}
+                cutoutResultPreviews={cutoutResultPreviews}
+                onApplyCutout={handleApplyCutout}
+                // 重新抠图props
+                onRecutImage={handleRecutImage}
+                recutingIndex={recutingIndex}
               />
 
               <TargetImageUpload
