@@ -30,6 +30,7 @@ export default function FoodReplacementPage() {
     pollJobStatus,
     setCurrentJobFileNames,
     addResults, // 使用hook提供的addResults方法
+    updateResult, // 使用hook提供的updateResult方法
   } = useFoodReplacement();
 
   const {
@@ -76,6 +77,9 @@ export default function FoodReplacementPage() {
 
   // 新增：正在重新抠图的图片索引（-1表示无）
   const [recutingIndex, setRecutingIndex] = useState<number>(-1);
+
+  // 新增：正在重新生成的结果索引（-1表示无）
+  const [regeneratingIndex, setRegeneratingIndex] = useState<number>(-1);
 
   // 监听抠图结果变化，自动生成预览URLs
   useEffect(() => {
@@ -221,6 +225,132 @@ export default function FoodReplacementPage() {
       setRecutingIndex(-1);
     }
   }, [isBatchMode, sourceImage, sourceImages, batchCutout]);
+
+  // 新增：重新生成单张图片
+  const handleRegenerateImage = useCallback(async (result: FoodReplacementResult, resultIndex: number) => {
+    console.log(`[handleRegenerateImage] 开始重新生成第 ${resultIndex + 1} 张图片`);
+    console.log('结果详情:', result);
+
+    setRegeneratingIndex(resultIndex);
+
+    try {
+      // 1. 找到对应的源图片
+      let sourceImageFile: File | null = null;
+
+      if (result.sourceImageIndex !== undefined) {
+        // 批量模式：根据sourceImageIndex找到对应的源图片
+        if (isBatchMode && sourceImages[result.sourceImageIndex]) {
+          sourceImageFile = sourceImages[result.sourceImageIndex];
+        } else if (!isBatchMode && sourceImage) {
+          // 单张模式
+          sourceImageFile = sourceImage;
+        }
+      } else {
+        // 如果没有sourceImageIndex，使用当前的源图片
+        sourceImageFile = isBatchMode ? sourceImages[0] : sourceImage;
+      }
+
+      if (!sourceImageFile) {
+        throw new Error('无法找到对应的源图片');
+      }
+
+      console.log('找到源图片:', sourceImageFile.name);
+
+      // 2. 获取当前的目标图片
+      const targetImageFile = isBatchMode ? batchTargetImage : targetImage;
+      if (!targetImageFile && !selectedTemplate) {
+        throw new Error('无法找到目标图片或模板');
+      }
+
+      // 3. 创建FormData
+      const formData = new FormData();
+      formData.append('sourceImage', sourceImageFile);
+
+      if (selectedTemplate) {
+        formData.append('targetImageUrl', selectedTemplate.url);
+        console.log('使用模板:', selectedTemplate.name);
+      } else if (targetImageFile) {
+        formData.append('targetImage', targetImageFile);
+        console.log('使用上传的目标图片');
+      }
+
+      // 4. 调用API
+      console.log('开始调用API重新生成...');
+      const response = await fetch('/api/food-replacement', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      console.log('API响应:', data);
+
+      if (data.ok && data.data && data.data.imageUrl) {
+        // Vercel同步模式: 直接处理结果
+        console.log('检测到同步响应，更新结果');
+        const updatedResult: FoodReplacementResult = {
+          ...result,
+          imageUrl: data.data.imageUrl,
+          width: data.data.width,
+          height: data.data.height,
+          processedAt: new Date().toISOString(),
+        };
+
+        updateResult(resultIndex, updatedResult);
+        console.log('✓ 重新生成成功');
+      } else if (data.ok && data.jobId) {
+        // 本地异步模式: 轮询等待作业完成
+        console.log('检测到异步作业，jobId:', data.jobId);
+
+        const maxAttempts = 150; // 5分钟
+        let attempts = 0;
+        let jobCompleted = false;
+
+        while (attempts < maxAttempts && !jobCompleted) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          attempts++;
+
+          try {
+            const jobResponse = await fetch(`/api/jobs/${data.jobId}`);
+            const jobData = await jobResponse.json();
+
+            console.log(`轮询 (${attempts}/${maxAttempts}):`, jobData.job?.status);
+
+            if (jobData.ok && jobData.job) {
+              if (jobData.job.status === 'succeeded' && jobData.job.result) {
+                // 作业成功完成
+                const updatedResult: FoodReplacementResult = {
+                  ...result,
+                  imageUrl: jobData.job.result.imageUrl,
+                  width: jobData.job.result.width,
+                  height: jobData.job.result.height,
+                  processedAt: new Date().toISOString(),
+                };
+
+                updateResult(resultIndex, updatedResult);
+                jobCompleted = true;
+                console.log('✓ 异步作业完成，重新生成成功');
+              } else if (jobData.job.status === 'failed') {
+                throw new Error(jobData.job.error || '处理失败');
+              }
+            }
+          } catch (pollError) {
+            console.error('轮询错误:', pollError);
+          }
+        }
+
+        if (!jobCompleted) {
+          throw new Error('处理超时，请重试');
+        }
+      } else {
+        throw new Error(data.error || '处理失败');
+      }
+    } catch (error) {
+      console.error('[handleRegenerateImage] 重新生成失败:', error);
+      alert(`重新生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    } finally {
+      setRegeneratingIndex(-1);
+    }
+  }, [isBatchMode, sourceImage, sourceImages, batchTargetImage, targetImage, selectedTemplate, updateResult]);
 
   // 开始处理
   const handleStartProcessing = async () => {
@@ -587,6 +717,8 @@ export default function FoodReplacementPage() {
 
             <ResultDisplay
               results={completedResults}
+              onRegenerate={handleRegenerateImage}
+              regeneratingIndex={regeneratingIndex}
             />
           </div>
         </div>

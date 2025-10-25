@@ -122,6 +122,15 @@ export function useFoodReplacement() {
     setCompletedResults(prevResults => [...prevResults, ...newResults]);
   }, []);
 
+  // 更新单个结果的方法
+  const updateResult = useCallback((index: number, updatedResult: FoodReplacementResult) => {
+    setCompletedResults(prevResults => {
+      const newResults = [...prevResults];
+      newResults[index] = updatedResult;
+      return newResults;
+    });
+  }, []);
+
   return {
     // 状态
     isBatchMode,
@@ -139,5 +148,6 @@ export function useFoodReplacement() {
     pollJobStatus,
     setCurrentJobFileNames,
     addResults, // 新增: 添加结果的方法
+    updateResult, // 新增: 更新单个结果的方法
   };
 }

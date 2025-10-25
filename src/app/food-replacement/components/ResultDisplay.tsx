@@ -1,12 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { RefreshCwIcon, Loader2Icon } from 'lucide-react';
 import { FoodReplacementResult } from '../types';
 
 interface ResultDisplayProps {
   results: FoodReplacementResult[];
+  onRegenerate?: (result: FoodReplacementResult, index: number) => void;
+  regeneratingIndex?: number;
 }
 
-export default function ResultDisplay({ results }: ResultDisplayProps) {
+export default function ResultDisplay({
+  results,
+  onRegenerate,
+  regeneratingIndex = -1,
+}: ResultDisplayProps) {
   if (results.length === 0) return null;
 
   // 下载图片 - 原始尺寸
@@ -65,10 +72,10 @@ export default function ResultDisplay({ results }: ResultDisplayProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {results.map((result, index) => (
             <div key={result.id || `result-${index}`} className="group relative">
-              <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+              <div className="aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden">
                 <img
                   src={result.imageUrl}
                   alt={`生成结果 ${index + 1}`}
@@ -83,22 +90,48 @@ export default function ResultDisplay({ results }: ResultDisplayProps) {
                 />
               </div>
 
-              {/* 悬停时显示下载按钮 */}
-              <div className="absolute inset-0 bg-transparent group-hover:bg-black group-hover:bg-opacity-10 transition-all duration-300 rounded-lg flex items-center justify-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white shadow-lg"
-                  onClick={() => {
-                    let filename = `food-replacement-${index + 1}-${Date.now()}.png`;
-                    if (result.sourceFileName) {
-                      filename = result.sourceFileName;
-                    }
-                    downloadImage(result.imageUrl, filename);
-                  }}
-                >
-                  下载图片
-                </Button>
+              {/* 悬停时显示按钮 - 重新生成和下载 */}
+              <div className="absolute inset-0 bg-transparent group-hover:bg-black group-hover:bg-opacity-30 transition-all duration-300 rounded-lg flex items-center justify-center">
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex gap-3">
+                  {/* 重新生成按钮 */}
+                  {onRegenerate && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-white shadow-lg"
+                      onClick={() => onRegenerate(result, index)}
+                      disabled={regeneratingIndex === index}
+                    >
+                      {regeneratingIndex === index ? (
+                        <>
+                          <Loader2Icon className="w-4 h-4 mr-1 animate-spin" />
+                          重新生成中...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCwIcon className="w-4 h-4 mr-1" />
+                          重新生成
+                        </>
+                      )}
+                    </Button>
+                  )}
+
+                  {/* 下载按钮 */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-white shadow-lg"
+                    onClick={() => {
+                      let filename = `food-replacement-${index + 1}-${Date.now()}.png`;
+                      if (result.sourceFileName) {
+                        filename = result.sourceFileName;
+                      }
+                      downloadImage(result.imageUrl, filename);
+                    }}
+                  >
+                    下载图片
+                  </Button>
+                </div>
               </div>
 
               {/* 图片序号 */}
