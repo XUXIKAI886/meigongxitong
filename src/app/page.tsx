@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,12 +16,46 @@ import {
   RefreshCwIcon,
   BlendIcon,
   LayersIcon,
-  HardDriveIcon
+  HardDriveIcon,
+  LogOutIcon
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function HomePage() {
+  const router = useRouter();
   const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // 检查登录状态
+  useEffect(() => {
+    const isAuthenticated = localStorage.getItem('isAuthenticated');
+    if (!isAuthenticated || isAuthenticated !== 'true') {
+      router.push('/login');
+    } else {
+      setIsCheckingAuth(false);
+    }
+  }, [router]);
+
+  // 退出登录
+  const handleLogout = () => {
+    if (confirm('确定要退出登录吗？')) {
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('loginTime');
+      router.push('/login');
+    }
+  };
+
+  // 正在检查登录状态时显示加载界面
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-100/50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">正在验证身份...</p>
+        </div>
+      </div>
+    );
+  }
 
   // 清空所有生成的图片文件
   const cleanupGeneratedImages = async () => {
@@ -153,6 +188,16 @@ export default function HomePage() {
               >
                 <HardDriveIcon className="w-4 h-4" />
                 {isCleaningUp ? '清理中...' : '清理磁盘'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                className="flex items-center gap-2 text-red-600 border-red-600 hover:bg-red-50 shadow-sm"
+                title="退出登录"
+              >
+                <LogOutIcon className="w-4 h-4" />
+                退出登录
               </Button>
               <Badge variant="secondary" className="text-sm px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-200 shadow-sm">
                 外卖商家图片智能设计生成系统
