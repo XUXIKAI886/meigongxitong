@@ -98,21 +98,28 @@ export default function SourceImageUpload({
                 <p className="text-sm font-medium text-gray-700 mb-2">
                   已选择 {sourceImages.length} 张图片：
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {sourceImagePreviews.map((preview, index) => (
                     <div key={index} className="relative group">
-                      <img
-                        src={preview}
-                        alt={`源图片 ${index + 1}`}
-                        className="w-full h-20 object-cover rounded border"
-                      />
-                      <button
-                        onClick={() => onRemoveBatchImage(index)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <XIcon className="w-3 h-3" />
-                      </button>
-                      <p className="text-xs text-gray-500 mt-1 truncate">
+                      {/* 1:1正方形容器 */}
+                      <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-300 bg-gray-50">
+                        <img
+                          src={preview}
+                          alt={`源图片 ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          onClick={() => onRemoveBatchImage(index)}
+                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                        >
+                          <XIcon className="w-4 h-4" />
+                        </button>
+                        {/* 图片序号 */}
+                        <div className="absolute bottom-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                          {index + 1}
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2 truncate">
                         {sourceImages[index].name}
                       </p>
                     </div>
@@ -220,28 +227,42 @@ export default function SourceImageUpload({
               className="hidden"
               id="source-upload"
             />
-            <label
-              htmlFor="source-upload"
-              className="block w-full p-8 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-orange-400 transition-colors"
-            >
-              {sourceImagePreview ? (
-                <div>
+            {sourceImagePreview ? (
+              <div className="space-y-4">
+                {/* 1:1正方形预览容器 */}
+                <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-300 bg-gray-50">
                   <img
                     src={sourceImagePreview}
                     alt="源图片预览"
-                    className="mx-auto max-h-32 rounded mb-2"
+                    className="w-full h-full object-cover"
                   />
-                  <p className="text-sm text-gray-600">{sourceImage?.name}</p>
+                  {/* 图片序号 */}
+                  <div className="absolute bottom-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                    1
+                  </div>
                 </div>
-              ) : (
-                <div>
-                  <UploadIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <p className="text-gray-600 font-medium">上传源图片</p>
-                  <p className="text-sm text-gray-500 mt-1">点击选择图片</p>
-                  <p className="text-xs text-gray-400 mt-2">支持 JPEG、PNG、WebP，最大 10MB</p>
-                </div>
-              )}
-            </label>
+                <p className="text-sm text-gray-600 text-center">{sourceImage?.name}</p>
+
+                {/* 重新选择按钮 */}
+                <label
+                  htmlFor="source-upload"
+                  className="block w-full p-4 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-orange-400 transition-colors"
+                >
+                  <UploadIcon className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-600">点击重新选择图片</p>
+                </label>
+              </div>
+            ) : (
+              <label
+                htmlFor="source-upload"
+                className="block w-full p-8 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-orange-400 transition-colors"
+              >
+                <UploadIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <p className="text-gray-600 font-medium">上传源图片</p>
+                <p className="text-sm text-gray-500 mt-1">点击选择图片</p>
+                <p className="text-xs text-gray-400 mt-2">支持 JPEG、PNG、WebP，最大 10MB</p>
+              </label>
+            )}
 
             {/* 抠图结果预览区域 */}
             {cutoutResultPreviews.length > 0 && cutoutResultPreviews[0] && (
