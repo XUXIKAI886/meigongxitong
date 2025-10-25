@@ -217,6 +217,35 @@ npm run start
 
 **职责**：上传店铺头像，反推风格并生成三张统一风格的图片墙
 
+**UI/UX优化**（v2.7.0）：
+- ✨ **整体spacing优化**：页面垂直padding增加（py-8→py-10），内容区域间距扩大（space-y-6→space-y-8）
+- 🎨 **标题与导航改进**：
+  - 标题尺寸增大（text-xl→text-3xl），颜色深化为text-gray-900
+  - 分隔边框加粗（border-l-2），添加描述文本（text-base leading-relaxed）
+  - 返回按钮添加缩放动画（hover:scale-105），交互反馈更友好
+- 📤 **上传区域优化**：
+  - 内padding增加（p-8→p-10），添加过渡动画（transition-all duration-300）
+  - 激活状态采用橙色主题（border-orange-400 bg-orange-50），添加缩放效果（scale-105）
+  - 图标尺寸增大（h-12→h-14），颜色改为text-orange-400
+  - 预览区域添加渐变背景（from-orange-50 to-red-50）和边框（border-orange-200）
+- 🖼️ **生成按钮优化**：
+  - 高度统一（h-12），添加橙红色渐变（from-orange-500 to-red-500）
+  - 添加多层阴影效果（shadow-lg hover:shadow-xl）
+  - 悬停缩放效果（hover:scale-105），过渡动画优化（transition-all duration-300）
+- 📊 **处理状态改进**：
+  - 整体容器添加渐变背景（from-orange-50 to-red-50）和边框（border-orange-200）
+  - 进度条高度增加（h-2.5），进度文字采用橙色强调（text-orange-600 font-semibold）
+  - 状态消息添加emoji指示器（⏳ 排队、✨ 分析、🎨 生成、💾 保存）
+  - 反推提示词区域优化：白色背景+橙色边框，标题文字采用橙色（text-orange-700）
+- 🎨 **空状态优化**：
+  - Padding增加（py-12→py-16），图标尺寸增大（h-12→h-16）
+  - 文字分两行显示，主文字增大（text-base font-medium），副文字添加说明
+- 🎨 **视觉效果提升**：
+  - 统一橙红色主题色系，与其他工具风格一致
+  - 增加渐变背景、边框、阴影创建多层视觉深度
+  - 改进文字排版（font-medium、leading-relaxed），可读性更强
+  - 所有交互元素添加过渡动画和hover效果，用户体验更流畅
+
 **核心特性**：
 - 风格分析与统一设计
 - 批量生成（3张）

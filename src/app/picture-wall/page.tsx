@@ -172,30 +172,26 @@ export default function PictureWallPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50">
       {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" onClick={() => router.push('/')}>
+      <div className="container mx-auto px-4 py-10">
+        <div className="flex items-center justify-between mb-10">
+          <div>
+            <div className="flex items-center gap-4 mb-3">
+              <Button variant="outline" size="sm" onClick={() => router.push('/')} className="transition-all hover:scale-105">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 返回首页
               </Button>
-              <div className="flex items-center space-x-2">
-                <Images className="h-6 w-6 text-orange-600" />
-                <h1 className="text-xl font-bold text-gray-900">图片墙生成</h1>
-              </div>
+              <div className="h-6 border-l-2 border-gray-300"></div>
+              <h1 className="text-3xl font-bold text-gray-900">图片墙生成</h1>
             </div>
-            <Badge variant="secondary">F4</Badge>
+            <p className="text-gray-600 text-base leading-relaxed">上传店铺头像，AI智能分析并生成三张风格统一的专业图片墙</p>
           </div>
         </div>
-      </header>
 
-      <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column - Input */}
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Upload Avatar */}
             <Card>
               <CardHeader>
@@ -208,25 +204,25 @@ export default function PictureWallPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div {...getRootProps()} className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                  isDragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+                <div {...getRootProps()} className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-all duration-300 ${
+                  isDragActive ? 'border-orange-400 bg-orange-50 scale-105' : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50/50'
                 }`}>
                   <input {...getInputProps()} />
                   <div className="space-y-4">
-                    <User className="h-12 w-12 mx-auto text-gray-400" />
+                    <User className="h-14 w-14 mx-auto text-orange-400" />
                     <div>
                       <p className="text-lg font-medium text-gray-900">
                         {uploadedFile ? uploadedFile.name : '拖拽图片到此处或点击上传'}
                       </p>
-                      <p className="text-sm text-gray-500">支持 JPG、PNG、WebP 格式，最大 10MB</p>
+                      <p className="text-sm text-gray-500 mt-2">支持 JPG、PNG、WebP 格式，最大 10MB</p>
                     </div>
                   </div>
                 </div>
 
                 {previewUrl && (
-                  <div className="mt-4">
-                    <p className="text-sm font-medium text-gray-700 mb-2">头像预览</p>
-                    <div className="mt-2 flex justify-center">
+                  <div className="mt-6">
+                    <p className="text-sm font-medium text-gray-700 mb-3">头像预览</p>
+                    <div className="mt-2 flex justify-center p-4 bg-gradient-to-br from-orange-50 to-red-50 rounded-lg border border-orange-200">
                       <img
                         src={previewUrl}
                         alt="Avatar Preview"
@@ -253,7 +249,7 @@ export default function PictureWallPage() {
                 <Button
                   onClick={handleGenerate}
                   disabled={isProcessing || !uploadedFile}
-                  className="w-full"
+                  className="w-full h-12 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
                   size="lg"
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
@@ -264,7 +260,7 @@ export default function PictureWallPage() {
           </div>
 
           {/* Right Column - Results */}
-          <div className="space-y-6">
+          <div className="space-y-8">
             <Card>
               <CardHeader>
                 <CardTitle>生成结果</CardTitle>
@@ -274,23 +270,23 @@ export default function PictureWallPage() {
               </CardHeader>
               <CardContent>
                 {isProcessing && jobStatus && (
-                  <div className="space-y-4">
+                  <div className="space-y-5 p-6 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border border-orange-200">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">生成进度</span>
-                      <span className="text-sm text-gray-500">{jobStatus.progress}%</span>
+                      <span className="text-sm font-medium text-gray-700">生成进度</span>
+                      <span className="text-sm font-semibold text-orange-600">{jobStatus.progress}%</span>
                     </div>
-                    <Progress value={jobStatus.progress} className="w-full" />
-                    <p className="text-sm text-gray-600 text-center">
-                      {jobStatus.status === 'queued' && '排队中...'}
-                      {jobStatus.status === 'running' && jobStatus.progress < 30 && '正在分析头像，反推设计提示词...'}
-                      {jobStatus.status === 'running' && jobStatus.progress >= 30 && jobStatus.progress < 90 && '正在生成图片墙...'}
-                      {jobStatus.status === 'running' && jobStatus.progress >= 90 && '正在处理和保存图片...'}
+                    <Progress value={jobStatus.progress} className="w-full h-2.5" />
+                    <p className="text-sm text-gray-700 text-center font-medium leading-relaxed">
+                      {jobStatus.status === 'queued' && '⏳ 排队中...'}
+                      {jobStatus.status === 'running' && jobStatus.progress < 30 && '✨ 正在分析头像，反推设计提示词...'}
+                      {jobStatus.status === 'running' && jobStatus.progress >= 30 && jobStatus.progress < 90 && '🎨 正在生成图片墙...'}
+                      {jobStatus.status === 'running' && jobStatus.progress >= 90 && '💾 正在处理和保存图片...'}
                     </p>
 
                     {/* 显示反推提示词结果 */}
                     {jobStatus.reversePrompt && (
-                      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                        <h5 className="font-medium text-sm mb-2">🔍 反推提示词分析结果</h5>
+                      <div className="mt-4 p-4 bg-white rounded-lg border border-orange-200">
+                        <h5 className="font-semibold text-sm mb-3 text-orange-700">🔍 反推提示词分析结果</h5>
 
                         {jobStatus.reversePrompt.summary && (
                           <div className="mb-3">
@@ -329,9 +325,9 @@ export default function PictureWallPage() {
 
                 {jobStatus?.status === 'failed' && (
                   <div className="space-y-4">
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                      <h4 className="font-medium text-red-800 mb-2">❌ 生成失败</h4>
-                      <p className="text-sm text-red-700">
+                    <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+                      <h4 className="font-semibold text-red-800 mb-2">❌ 生成失败</h4>
+                      <p className="text-sm text-red-700 leading-relaxed">
                         {jobStatus.error || '未知错误，请重试'}
                       </p>
                     </div>
@@ -471,9 +467,10 @@ export default function PictureWallPage() {
                 )}
 
                 {!isProcessing && !jobStatus && (
-                  <div className="text-center text-gray-500 py-12">
-                    <Images className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>上传头像后，开始生成图片墙</p>
+                  <div className="text-center text-gray-500 py-16">
+                    <Images className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                    <p className="text-base font-medium">上传头像后，开始生成图片墙</p>
+                    <p className="text-sm text-gray-400 mt-2">系统将自动分析并生成3张专业图片</p>
                   </div>
                 )}
               </CardContent>
