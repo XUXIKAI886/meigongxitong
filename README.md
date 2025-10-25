@@ -159,10 +159,19 @@ npm run start
 - ✅ 精确控制食物份量（7-8分满）和摆放位置
 - ✅ 专业摄影级光影效果（高光、对比度、亮度优化）
 
+**模板智能映射**：
+- 🎯 **自动填充店铺名**：选择模板时自动填充"风格店铺名"输入框
+- 📋 **模板店铺名映射表**（`constants/templateStoreNameMap.ts`）：
+  - 通用-1 → 炒鸡大排档
+  - 通用-2 → 锦膳私厨
+  - ...（共22套模板）
+  - **通用-22 → 盖饭先生**（最新添加）
+- ✅ **用户可编辑**：自动填充的店铺名可手动修改
+
 **架构特点**：
 - 模块化拆分为 `components/`、`hooks/`、`constants/` 子目录
 - `useLogoStudioForm` 负责表单状态与图片压缩
-- `useLogoStudioTemplates` 管理模板分类与加载
+- `useLogoStudioTemplates` 管理模板分类与加载，支持店铺名自动映射
 - `useLogoStudioGeneration` 处理素材生成与轮询逻辑
 - `useCozePromptOptimizer` / `useCozeDishGenerator` 封装Coze API交互
 
