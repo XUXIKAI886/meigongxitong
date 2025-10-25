@@ -73,6 +73,30 @@ export function useImageUpload() {
     setSourceImagePreviews(newPreviews);
   }, [sourceImages, sourceImagePreviews]);
 
+  // 替换批量模式中指定索引的图片（用于抠图后替换）
+  const replaceBatchSourceImage = useCallback((index: number, newFile: File) => {
+    setSourceImages(prevImages => {
+      const newImages = [...prevImages];
+      newImages[index] = newFile;
+      return newImages;
+    });
+
+    // 更新预览
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSourceImagePreviews(prevPreviews => {
+        const newPreviews = [...prevPreviews];
+        // 释放旧预览URL（如果是blob URL）
+        if (prevPreviews[index] && prevPreviews[index].startsWith('blob:')) {
+          URL.revokeObjectURL(prevPreviews[index]);
+        }
+        newPreviews[index] = reader.result as string;
+        return newPreviews;
+      });
+    };
+    reader.readAsDataURL(newFile);
+  }, []);
+
   // 设置风格预览
   const setTemplatePreview = useCallback((templateUrl: string, isBatchMode: boolean) => {
     if (isBatchMode) {
@@ -134,6 +158,7 @@ export function useImageUpload() {
 
     // 操作
     removeBatchSourceImage,
+    replaceBatchSourceImage,  // 新增：替换批量图片
     setTemplatePreview,
     clearPreviews,
     setSourceImages,

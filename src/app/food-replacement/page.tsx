@@ -3,10 +3,11 @@
 import { Button } from '@/components/ui/button';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useFoodReplacement } from './hooks/useFoodReplacement';
 import { useTemplates } from './hooks/useTemplates';
 import { useImageUpload } from './hooks/useImageUpload';
+import { useBatchCutout } from './hooks/useBatchCutout';
 import { FoodReplacementResult } from './types';
 import BatchModeToggle from './components/BatchModeToggle';
 import SourceImageUpload from './components/SourceImageUpload';
@@ -59,11 +60,52 @@ export default function FoodReplacementPage() {
     batchSourceDropzone,
     batchTargetDropzone,
     removeBatchSourceImage,
+    replaceBatchSourceImage,  // 新增：用于抠图后替换图片
     setTemplatePreview,
     clearPreviews,
     setSourceImages,
     setSourceImagePreviews,
   } = useImageUpload();
+
+  // 新增：批量抠图Hook
+  const batchCutout = useBatchCutout();
+
+  // 新增：抠图结果预览URLs状态管理
+  const [cutoutResultPreviews, setCutoutResultPreviews] = useState<string[]>([]);
+
+  // 新增：正在重新抠图的图片索引（-1表示无）
+  const [recutingIndex, setRecutingIndex] = useState<number>(-1);
+
+  // 监听抠图结果变化，自动生成预览URLs
+  useEffect(() => {
+    const { cutoutResults } = batchCutout;
+    if (cutoutResults.length === 0) {
+      setCutoutResultPreviews([]);
+      return;
+    }
+
+    // 生成预览URLs
+    const previews: string[] = [];
+    cutoutResults.forEach((file) => {
+      if (file) {
+        const url = URL.createObjectURL(file);
+        previews.push(url);
+      } else {
+        previews.push('');
+      }
+    });
+
+    setCutoutResultPreviews(previews);
+
+    // 清理旧的blob URLs
+    return () => {
+      previews.forEach((url) => {
+        if (url && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [batchCutout.cutoutResults]);
 
   // 页面加载时自动加载美团风格
   useEffect(() => {
@@ -89,6 +131,76 @@ export default function FoodReplacementPage() {
   const handleToggleTemplateSelector = (show: boolean) => {
     setShowTemplateSelector(show);
   };
+
+  // 新增：处理批量抠图
+  const handleBatchCutout = useCallback(async () => {
+    if (sourceImages.length === 0) {
+      alert('请先上传源图片');
+      return;
+    }
+
+    console.log('[handleBatchCutout] 开始批量抠图');
+
+    // 不再传递回调，直接调用batchCutout
+    await batchCutout.batchCutout(sourceImages);
+
+    // 显示完成提示
+    const { successCount, failedCount } = batchCutout;
+    alert(
+      `批量抠图完成！\n\n` +
+      `✓ 成功: ${successCount}/${sourceImages.length}\n` +
+      (failedCount > 0 ? `✗ 失败: ${failedCount}` : '') +
+      `\n\n请查看下方的抠图结果预览，确认无误后点击"一键应用"按钮。`
+    );
+
+    console.log('[handleBatchCutout] 批量抠图完成');
+  }, [sourceImages, batchCutout]);
+
+  // 新增：应用抠图结果
+  const handleApplyCutout = useCallback(() => {
+    const { cutoutResults } = batchCutout;
+    if (cutoutResults.length === 0) {
+      alert('没有可应用的抠图结果');
+      return;
+    }
+
+    console.log('[handleApplyCutout] 开始应用抠图结果');
+
+    // 替换所有源图片
+    cutoutResults.forEach((cutoutFile, index) => {
+      if (cutoutFile) {
+        replaceBatchSourceImage(index, cutoutFile);
+        console.log(`✓ 第${index + 1}张已应用:`, cutoutFile.name);
+      }
+    });
+
+    // 清空抠图结果和预览
+    batchCutout.clearCutoutResults();
+    setCutoutResultPreviews([]);
+
+    console.log('[handleApplyCutout] 应用完成');
+  }, [batchCutout, replaceBatchSourceImage]);
+
+  // 新增：重新抠图单张图片
+  const handleRecutImage = useCallback(async (index: number) => {
+    if (index < 0 || index >= sourceImages.length) {
+      console.error('[handleRecutImage] 索引越界:', index);
+      return;
+    }
+
+    console.log(`[handleRecutImage] 开始重新抠图第 ${index + 1} 张`);
+    setRecutingIndex(index);
+
+    try {
+      await batchCutout.recutSingleImage(index, sourceImages[index]);
+      console.log(`[handleRecutImage] 第 ${index + 1} 张重新抠图成功`);
+    } catch (error) {
+      console.error(`[handleRecutImage] 第 ${index + 1} 张重新抠图失败:`, error);
+      alert(`重新抠图失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    } finally {
+      setRecutingIndex(-1);
+    }
+  }, [sourceImages, batchCutout]);
 
   // 开始处理
   const handleStartProcessing = async () => {
@@ -128,6 +240,7 @@ export default function FoodReplacementPage() {
             });
 
             console.log(`处理第 ${i + 1}/${sourceImages.length} 张图片: ${sourceImages[i].name}`);
+            console.log('sourceImage类型:', sourceImages[i] instanceof File, 'size:', sourceImages[i].size, 'type:', sourceImages[i].type);
 
             // 为每张图片创建单独的请求
             const singleFormData = new FormData();
@@ -139,16 +252,36 @@ export default function FoodReplacementPage() {
               singleFormData.append('targetImage', batchTargetImage);
             }
 
+            console.log('FormData内容:', {
+              hasSourceImage: singleFormData.has('sourceImage'),
+              hasTargetImageUrl: singleFormData.has('targetImageUrl'),
+              hasTargetImage: singleFormData.has('targetImage'),
+            });
+
             // 调用单张处理API
-            const response = await fetch('/api/food-replacement', {
+            const requestUrl = '/api/food-replacement';
+            console.log('即将发送请求到:', requestUrl);
+            const response = await fetch(requestUrl, {
               method: 'POST',
               body: singleFormData,
             });
 
+            console.log('收到响应:', {
+              url: response.url,  // 实际请求的URL
+              status: response.status,
+              statusText: response.statusText,
+              ok: response.ok,
+              headers: Object.fromEntries(response.headers.entries())
+            });
+
             const data = await response.json();
 
+            console.log('完整API响应数据:', data);  // 打印完整data对象
+            console.log('API响应解析:', { ok: data.ok, hasData: !!data.data, hasImageUrl: !!(data.data?.imageUrl), hasJobId: !!data.jobId, error: data.error });
+
             if (data.ok && data.data && data.data.imageUrl) {
-              // 处理成功
+              // Vercel同步模式: 直接处理结果
+              console.log(`第 ${i + 1} 张：检测到同步响应`);
               const result: FoodReplacementResult = {
                 id: `${Date.now()}-${i}-${Math.random().toString(36).substring(2, 15)}`,
                 imageUrl: data.data.imageUrl,
@@ -166,8 +299,61 @@ export default function FoodReplacementPage() {
               addResults([result]);
 
               console.log(`✓ 第 ${i + 1} 张处理成功`);
+            } else if (data.ok && data.jobId) {
+              // 本地异步模式: 轮询等待作业完成
+              console.log(`第 ${i + 1} 张：检测到异步作业，jobId: ${data.jobId}`);
+
+              // 轮询作业状态，最多等待5分钟
+              const maxAttempts = 150; // 150次 * 2秒 = 5分钟
+              let attempts = 0;
+              let jobCompleted = false;
+
+              while (attempts < maxAttempts && !jobCompleted) {
+                await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒
+                attempts++;
+
+                try {
+                  const jobResponse = await fetch(`/api/jobs/${data.jobId}`);
+                  const jobData = await jobResponse.json();
+
+                  console.log(`第 ${i + 1} 张轮询 (${attempts}/${maxAttempts}):`, jobData.job?.status);
+
+                  if (jobData.ok && jobData.job) {
+                    if (jobData.job.status === 'succeeded' && jobData.job.result) {
+                      // 作业成功完成
+                      const result: FoodReplacementResult = {
+                        id: `${Date.now()}-${i}-${Math.random().toString(36).substring(2, 15)}`,
+                        imageUrl: jobData.job.result.imageUrl,
+                        width: jobData.job.result.width,
+                        height: jobData.job.result.height,
+                        sourceImageIndex: i,
+                        sourceFileName: sourceImages[i].name,
+                        processedAt: new Date().toISOString(),
+                      };
+
+                      newResults.push(result);
+                      successCount++;
+                      addResults([result]);
+                      jobCompleted = true;
+
+                      console.log(`✓ 第 ${i + 1} 张异步处理成功`);
+                    } else if (jobData.job.status === 'failed') {
+                      // 作业失败
+                      throw new Error(jobData.job.error || '异步处理失败');
+                    }
+                    // status === 'running' 或 'queued'，继续轮询
+                  }
+                } catch (pollError) {
+                  console.error(`第 ${i + 1} 张轮询出错:`, pollError);
+                  // 继续轮询
+                }
+              }
+
+              if (!jobCompleted) {
+                throw new Error('异步处理超时（5分钟）');
+              }
             } else {
-              throw new Error(data.error || '处理失败');
+              throw new Error(data.error || '处理失败：无效的响应格式');
             }
 
           } catch (error) {
@@ -322,6 +508,18 @@ export default function FoodReplacementPage() {
                 sourceImagePreviews={sourceImagePreviews}
                 batchSourceDropzone={batchSourceDropzone}
                 onRemoveBatchImage={removeBatchSourceImage}
+                // 批量抠图props
+                onStartBatchCutout={handleBatchCutout}
+                isCutting={batchCutout.isCutting}
+                cutoutProgress={batchCutout.cutoutProgress}
+                currentImageIndex={batchCutout.currentImageIndex}
+                // 抠图结果展示与应用props
+                cutoutResults={batchCutout.cutoutResults}
+                cutoutResultPreviews={cutoutResultPreviews}
+                onApplyCutout={handleApplyCutout}
+                // 重新抠图props
+                onRecutImage={handleRecutImage}
+                recutingIndex={recutingIndex}
               />
 
               <TargetImageUpload

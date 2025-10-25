@@ -57,3 +57,15 @@ export interface GenerateDishResponse {
   imageUrl?: string;
   imageBase64?: string;
 }
+
+// 抠图请求
+export interface CutoutImageRequest {
+  imageBase64: string;  // 原图的base64编码（不含data:image前缀）
+  prompt: string;        // 抠图提示词
+}
+
+// 抠图响应
+export interface CutoutImageResponse {
+  imageUrl?: string;     // 抠图后的图片URL（HTTP/HTTPS）
+  imageBase64?: string;  // 或base64格式（data:image/...）
+}

@@ -12,6 +12,7 @@ import type {
   FoodReplacementJobResult,
 } from '@/types/job-payloads';
 
+console.log('[DEBUG] food-replacement/route.ts 文件已加载');
 
 // 强制使用 Node.js Runtime (Vercel部署必需)
 export const runtime = 'nodejs';
@@ -140,6 +141,10 @@ class FoodReplacementProcessor implements JobProcessor<FoodReplacementJobPayload
 jobRunner.registerProcessor('food-replacement', new FoodReplacementProcessor());
 
 export async function POST(request: NextRequest) {
+  console.log('========================================');
+  console.log('POST /api/food-replacement 被调用！');
+  console.log('========================================');
+
   try {
     const clientIp = request.headers.get('x-forwarded-for') ||
                      request.headers.get('x-real-ip') ||

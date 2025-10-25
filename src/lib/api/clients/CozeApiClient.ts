@@ -279,4 +279,62 @@ export class CozeApiClient extends BaseApiClient {
       reader.readAsDataURL(file);
     });
   }
+
+  /**
+   * 抠图处理（流式响应）
+   *
+   * @param fileId - 已上传到Coze的文件ID
+   * @param prompt - 抠图提示词
+   * @returns ReadableStream 用于接收流式响应
+   */
+  async cutoutImageStream(fileId: string, prompt: string): Promise<ReadableStream> {
+    // 使用file_id构造消息
+    const messageContent = JSON.stringify([
+      { type: 'text', text: prompt },
+      { type: 'image', file_id: fileId }
+    ]);
+
+    const request: CozeChatRequest = {
+      bot_id: this.botDishGenerator,
+      user_id: `cutout_${Date.now()}`,
+      stream: true,
+      auto_save_history: false,
+      additional_messages: [
+        {
+          role: 'user',
+          content: messageContent,
+          content_type: 'object_string',
+        }
+      ],
+    };
+
+    this.logRequest('[CozeAPI] 抠图处理（流式）', { fileId, promptLength: prompt.length });
+
+    try {
+      const response = await fetch(`${this.client.defaults.baseURL}/v3/chat`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+        },
+        body: JSON.stringify(request),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[CozeAPI] 抠图HTTP错误:', response.status, errorText);
+        throw new Error(`Coze API请求失败: ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error('响应体不存在');
+      }
+
+      console.log('[CozeAPI] 抠图流式响应已建立，Content-Type:', response.headers.get('content-type'));
+      return response.body;
+    } catch (error) {
+      this.handleError(error, '[CozeAPI] 抠图流式调用失败');
+    }
+  }
 }
