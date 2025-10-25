@@ -95,7 +95,7 @@ export default function HomePage() {
       icon: RefreshCwIcon,
       href: '/food-replacement',
       color: 'bg-gradient-to-br from-amber-500 to-orange-600',
-      outputSize: '1200×900px',
+      outputSize: '美团1200×900px、饿了么800×800px',
       features: ['智能提取', '食物替换', '光影匹配', '透视校正', '自然融合']
     },
     {
@@ -105,7 +105,7 @@ export default function HomePage() {
       icon: BlendIcon,
       href: '/background-fusion',
       color: 'bg-gradient-to-br from-red-500 to-pink-600',
-      outputSize: '1200×900px',
+      outputSize: '美团1200×900px、饿了么800×800px',
       features: ['背景融合', '食欲增强', '光影匹配', '商业品质', '批量处理']
     },
     {
