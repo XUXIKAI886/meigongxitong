@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Download, Trash2, ImageIcon, RefreshCwIcon } from 'lucide-react';
 
 interface BatchResult {
@@ -153,32 +154,32 @@ export default function ResultDisplay({
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex gap-3">
                         {/* 重新生成按钮 */}
                         {onRegenerate && (
-                          <button
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-white shadow-lg"
                             onClick={() => onRegenerate(item, index)}
                             disabled={regeneratingIndex !== -1}
-                            className={`px-4 py-2 rounded shadow-lg font-medium flex items-center ${
-                              regeneratingIndex !== -1
-                                ? 'bg-gray-400 cursor-not-allowed opacity-50'
-                                : 'bg-white hover:bg-gray-100 text-gray-800'
-                            }`}
                             title={regeneratingIndex !== -1 ? '正在处理其他图片，请稍候...' : '重新生成'}
                           >
-                            <RefreshCwIcon className="h-4 w-4 mr-2" />
+                            <RefreshCwIcon className="w-4 h-4 mr-1" />
                             {regeneratingIndex !== -1 ? '请稍候...' : '重新生成'}
-                          </button>
+                          </Button>
                         )}
 
                         {/* 下载按钮 */}
-                        <button
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-white shadow-lg"
                           onClick={() => {
                             const filename = item.sourceFileName || `background-fusion-${index + 1}.jpg`;
                             onDownloadBatchImage(item.imageUrl!, filename, index);
                           }}
-                          className="bg-white hover:bg-gray-100 text-gray-800 px-4 py-2 rounded shadow-lg font-medium flex items-center"
                         >
-                          <Download className="h-4 w-4 mr-2" />
+                          <Download className="w-4 h-4 mr-1" />
                           下载图片
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   )}
