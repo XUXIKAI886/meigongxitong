@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { RefreshCwIcon, Loader2Icon } from 'lucide-react';
+import { RefreshCwIcon } from 'lucide-react';
 import { FoodReplacementResult } from '../types';
 
 interface ResultDisplayProps {
@@ -90,49 +90,49 @@ export default function ResultDisplay({
                 />
               </div>
 
-              {/* 悬停时显示按钮 - 重新生成和下载 */}
-              <div className="absolute inset-0 bg-transparent group-hover:bg-black group-hover:bg-opacity-30 transition-all duration-300 rounded-lg flex items-center justify-center">
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex gap-3">
-                  {/* 重新生成按钮 */}
-                  {onRegenerate && (
+              {/* 重新生成中的加载遮罩层 */}
+              {regeneratingIndex === index && (
+                <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center rounded-lg">
+                  <RefreshCwIcon className="w-12 h-12 text-blue-600 animate-spin mb-2" />
+                  <p className="text-sm font-medium text-gray-700">重新生成中...</p>
+                </div>
+              )}
+
+              {/* 悬停时显示按钮 - 重新生成和下载 - 仅在非生成状态时显示 */}
+              {regeneratingIndex !== index && (
+                <div className="absolute inset-0 bg-transparent group-hover:bg-black group-hover:bg-opacity-30 transition-all duration-300 rounded-lg flex items-center justify-center">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex gap-3">
+                    {/* 重新生成按钮 */}
+                    {onRegenerate && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-white shadow-lg"
+                        onClick={() => onRegenerate(result, index)}
+                      >
+                        <RefreshCwIcon className="w-4 h-4 mr-1" />
+                        重新生成
+                      </Button>
+                    )}
+
+                    {/* 下载按钮 */}
                     <Button
                       variant="outline"
                       size="sm"
                       className="bg-white shadow-lg"
-                      onClick={() => onRegenerate(result, index)}
-                      disabled={regeneratingIndex === index}
+                      onClick={() => {
+                        let filename = `food-replacement-${index + 1}-${Date.now()}.png`;
+                        if (result.sourceFileName) {
+                          filename = result.sourceFileName;
+                        }
+                        downloadImage(result.imageUrl, filename);
+                      }}
                     >
-                      {regeneratingIndex === index ? (
-                        <>
-                          <Loader2Icon className="w-4 h-4 mr-1 animate-spin" />
-                          重新生成中...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCwIcon className="w-4 h-4 mr-1" />
-                          重新生成
-                        </>
-                      )}
+                      下载图片
                     </Button>
-                  )}
-
-                  {/* 下载按钮 */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-white shadow-lg"
-                    onClick={() => {
-                      let filename = `food-replacement-${index + 1}-${Date.now()}.png`;
-                      if (result.sourceFileName) {
-                        filename = result.sourceFileName;
-                      }
-                      downloadImage(result.imageUrl, filename);
-                    }}
-                  >
-                    下载图片
-                  </Button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* 图片序号 */}
               <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded shadow-sm">
