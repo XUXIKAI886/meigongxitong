@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { resolveTemplateFile } from '@/lib/template-path';
 
 export async function GET(
   request: NextRequest,
@@ -9,7 +10,7 @@ export async function GET(
   try {
     const { filename } = await params;
     const decodedFilename = decodeURIComponent(filename);
-    const filePath = path.join(process.cwd(), 'shiwutihuangongju', decodedFilename);
+    const filePath = resolveTemplateFile('shiwutihuangongju', decodedFilename);
 
     // 检查文件是否存在
     if (!fs.existsSync(filePath)) {
