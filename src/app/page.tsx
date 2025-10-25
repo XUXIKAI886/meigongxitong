@@ -165,28 +165,55 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="py-20 relative">
         <div className="container mx-auto px-4 text-center relative z-10">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-900 bg-clip-text text-transparent mb-8 leading-tight">
-              美团+饿了么全套店铺装修，AI一键生成，告别传统设计的漫长等待
+          <div className="max-w-6xl mx-auto">
+            {/* 主标题 */}
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-900 bg-clip-text text-transparent mb-6 leading-tight px-4">
+              美团+饿了么全套店铺装修<br className="hidden md:block" />
+              AI一键生成，告别传统设计的漫长等待
             </h2>
-            <div className="text-lg md:text-xl text-gray-700 mb-10 max-w-3xl mx-auto leading-relaxed space-y-3">
-              <p className="flex items-start">
-                <span className="text-orange-500 mr-2 flex-shrink-0">✨</span>
-                <span><strong className="text-gray-900">极速交付：</strong>单店装修最快当天完成，日均产能100+店铺</span>
-              </p>
-              <p className="flex items-start">
-                <span className="text-orange-500 mr-2 flex-shrink-0">✨</span>
-                <span><strong className="text-gray-900">全套覆盖：</strong>三件套+P门头+图片墙+全店图+套餐图一站配齐</span>
-              </p>
-              <p className="flex items-start">
-                <span className="text-orange-500 mr-2 flex-shrink-0">✨</span>
-                <span><strong className="text-gray-900">专业品质：</strong>AI精准适配双平台规范，让您的店铺脱颖而出</span>
-              </p>
-              <p className="text-center mt-6 text-xl font-semibold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+
+            {/* 三大亮点卡片 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-8 mt-12">
+              {/* 极速交付 */}
+              <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl p-6 border-2 border-orange-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="text-4xl mb-4">✨</div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">极速交付</h3>
+                <p className="text-gray-700 leading-relaxed">
+                  单店装修最快当天完成<br />
+                  日均产能100+店铺
+                </p>
+              </div>
+
+              {/* 全套覆盖 */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="text-4xl mb-4">✨</div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">全套覆盖</h3>
+                <p className="text-gray-700 leading-relaxed">
+                  三件套+P门头+图片墙<br />
+                  全店图+套餐图一站配齐
+                </p>
+              </div>
+
+              {/* 专业品质 */}
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 border-2 border-purple-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="text-4xl mb-4">✨</div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">专业品质</h3>
+                <p className="text-gray-700 leading-relaxed">
+                  AI精准适配双平台规范<br />
+                  让您的店铺脱颖而出
+                </p>
+              </div>
+            </div>
+
+            {/* 底部Slogan */}
+            <div className="mt-10 mb-8">
+              <p className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 bg-clip-text text-transparent leading-relaxed">
                 从视觉优化到品牌升级，用AI重新定义外卖装修效率
               </p>
             </div>
-            <div className="flex flex-wrap justify-center gap-4 mb-8">
+
+            {/* 徽章 */}
+            <div className="flex flex-wrap justify-center gap-4">
               <Badge variant="outline" className="text-base px-6 py-3 bg-white/80 backdrop-blur-sm border-blue-200 text-blue-700 hover:bg-blue-50 transition-all duration-300 shadow-sm">
                 🎨 智能设计
               </Badge>
