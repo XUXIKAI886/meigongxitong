@@ -855,6 +855,24 @@ curl -X DELETE http://localhost:3000/api/files/cleanup
 - **协作规范**
   - [AGENTS.md](./AGENTS.md) - AI协作流程与历史背景
 
+## 🔐 作业队列安全策略
+
+1. **客户端标识统一解析**
+   - 通过 `src/lib/request-context.ts` 的 `getClientIdentifier` 封装 `x-forwarded-for` / `x-real-ip` / `cf-connecting-ip` 解析逻辑，确保 Vercel 与本地环境都能获得稳定标识。
+   - 业务 Route Handler 在创建作业前调用该方法，使用真实客户端来源而非硬编码 `anonymous`。
+
+2. **Job 结构持久化归属信息**
+   - `src/types/index.ts` 中 `Job` 结构新增 `userId`，`src/lib/job-queue.ts` 在 `createJob` 时自动写入该标识。
+   - 并发控制 Map `userJobs` 将该标识与 Job ID 关联，便于审计与清理。
+
+3. **状态查询鉴权**
+   - `src/app/api/jobs/[id]/route.ts` 会在返回 Job 状态前校验请求者身份，不匹配即返回 404，阻断枚举他人作业。
+   - 日志仍可观察进度但不会泄露他人生成结果。
+
+4. **接入指南**
+   - 新增异步 API 时务必调用 `getClientIdentifier`，并把结果传入 `JobQueue.createJob(type, payload, clientId)`。
+   - 如需保持 Vercel 同步执行路径，可按原逻辑处理，异步分支补齐 clientId 即可。
+
 ## 📝 新增业务模块指南
 
 如需新增业务模块，请遵循以下约定：
