@@ -167,7 +167,7 @@ export default function HomePage() {
         <div className="container mx-auto px-4 text-center relative z-10">
           <div className="max-w-6xl mx-auto">
             {/* 主标题 */}
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-900 bg-clip-text text-transparent mb-6 leading-tight px-4">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-900 bg-clip-text text-transparent mb-6 leading-tight px-4">
               美团+饿了么全套店铺装修<br className="hidden md:block" />
               AI一键生成，告别传统设计的漫长等待
             </h2>
@@ -175,30 +175,30 @@ export default function HomePage() {
             {/* 三大亮点卡片 */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-8 mt-12">
               {/* 极速交付 */}
-              <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl p-6 border-2 border-orange-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                <div className="text-4xl mb-4">✨</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">极速交付</h3>
-                <p className="text-gray-700 leading-relaxed">
+              <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl p-5 border-2 border-orange-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="text-3xl mb-3">✨</div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">极速交付</h3>
+                <p className="text-sm text-gray-700 leading-relaxed">
                   单店装修最快当天完成<br />
                   日均产能100+店铺
                 </p>
               </div>
 
               {/* 全套覆盖 */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                <div className="text-4xl mb-4">✨</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">全套覆盖</h3>
-                <p className="text-gray-700 leading-relaxed">
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 border-2 border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="text-3xl mb-3">✨</div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">全套覆盖</h3>
+                <p className="text-sm text-gray-700 leading-relaxed">
                   三件套+P门头+图片墙<br />
                   全店图+套餐图一站配齐
                 </p>
               </div>
 
               {/* 专业品质 */}
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 border-2 border-purple-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                <div className="text-4xl mb-4">✨</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">专业品质</h3>
-                <p className="text-gray-700 leading-relaxed">
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-5 border-2 border-purple-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="text-3xl mb-3">✨</div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">专业品质</h3>
+                <p className="text-sm text-gray-700 leading-relaxed">
                   AI精准适配双平台规范<br />
                   让您的店铺脱颖而出
                 </p>
@@ -206,23 +206,10 @@ export default function HomePage() {
             </div>
 
             {/* 底部Slogan */}
-            <div className="mt-10 mb-8">
-              <p className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 bg-clip-text text-transparent leading-relaxed">
+            <div className="mt-10">
+              <p className="text-xl md:text-2xl font-bold bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 bg-clip-text text-transparent leading-relaxed">
                 从视觉优化到品牌升级，用AI重新定义外卖装修效率
               </p>
-            </div>
-
-            {/* 徽章 */}
-            <div className="flex flex-wrap justify-center gap-4">
-              <Badge variant="outline" className="text-base px-6 py-3 bg-white/80 backdrop-blur-sm border-blue-200 text-blue-700 hover:bg-blue-50 transition-all duration-300 shadow-sm">
-                🎨 智能设计
-              </Badge>
-              <Badge variant="outline" className="text-base px-6 py-3 bg-white/80 backdrop-blur-sm border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-all duration-300 shadow-sm">
-                ⚡ 快速生成
-              </Badge>
-              <Badge variant="outline" className="text-base px-6 py-3 bg-white/80 backdrop-blur-sm border-purple-200 text-purple-700 hover:bg-purple-50 transition-all duration-300 shadow-sm">
-                🎯 专业品质
-              </Badge>
             </div>
           </div>
         </div>
