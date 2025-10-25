@@ -166,13 +166,26 @@ export default function HomePage() {
       <section className="py-20 relative">
         <div className="container mx-auto px-4 text-center relative z-10">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-900 bg-clip-text text-transparent mb-6 leading-tight">
-              AI驱动的外卖设计解决方案
+            <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-900 bg-clip-text text-transparent mb-8 leading-tight">
+              美团+饿了么全套店铺装修，AI一键生成，告别传统设计的漫长等待
             </h2>
-            <p className="text-xl md:text-2xl text-gray-600 mb-10 max-w-3xl mx-auto leading-relaxed">
-              通过先进的AI技术，为外卖商家提供专业的图片设计服务。
-              从单品图优化到品牌设计，一站式解决您的视觉营销需求。
-            </p>
+            <div className="text-lg md:text-xl text-gray-700 mb-10 max-w-3xl mx-auto leading-relaxed space-y-3">
+              <p className="flex items-start">
+                <span className="text-orange-500 mr-2 flex-shrink-0">✨</span>
+                <span><strong className="text-gray-900">极速交付：</strong>单店装修最快当天完成，日均产能100+店铺</span>
+              </p>
+              <p className="flex items-start">
+                <span className="text-orange-500 mr-2 flex-shrink-0">✨</span>
+                <span><strong className="text-gray-900">全套覆盖：</strong>三件套+P门头+图片墙+全店图+套餐图一站配齐</span>
+              </p>
+              <p className="flex items-start">
+                <span className="text-orange-500 mr-2 flex-shrink-0">✨</span>
+                <span><strong className="text-gray-900">专业品质：</strong>AI精准适配双平台规范，让您的店铺脱颖而出</span>
+              </p>
+              <p className="text-center mt-6 text-xl font-semibold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                从视觉优化到品牌升级，用AI重新定义外卖装修效率
+              </p>
+            </div>
             <div className="flex flex-wrap justify-center gap-4 mb-8">
               <Badge variant="outline" className="text-base px-6 py-3 bg-white/80 backdrop-blur-sm border-blue-200 text-blue-700 hover:bg-blue-50 transition-all duration-300 shadow-sm">
                 🎨 智能设计
