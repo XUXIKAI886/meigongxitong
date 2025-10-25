@@ -179,8 +179,8 @@ export default function HomePage() {
                 <div className="text-3xl mb-3">✨</div>
                 <h3 className="text-lg font-bold text-gray-900 mb-2">极速交付</h3>
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  单店装修最快当天完成<br />
-                  日均产能100+店铺
+                  日均产能100+店铺<br />
+                  批量装修也能快速完成
                 </p>
               </div>
 
