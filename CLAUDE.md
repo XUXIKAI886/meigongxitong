@@ -192,25 +192,48 @@ ui/
 
 **模块化架构**（`src/app/food-replacement/`）：
 ```
-├── page.tsx (252行) - 主页面，协调组件和Hook
+├── page.tsx (577行) - 主页面，协调组件和Hook，支持双环境异步/同步处理
 ├── types.ts (36行) - 类型定义
-├── components/ (6个组件)
+├── components/ (7个组件)
 │   ├── BatchModeToggle.tsx - 单图/批量模式切换
-│   ├── SourceImageUpload.tsx - 源图片上传
+│   ├── SourceImageUpload.tsx - 源图片上传（含批量抠图预览）
 │   ├── TargetImageUpload.tsx - 目标图片选择
 │   ├── ProcessingStatus.tsx - 处理状态显示
 │   ├── ResultDisplay.tsx - 结果展示
-│   └── TemplateSelector.tsx - 模板选择器
-└── hooks/ (3个Hook)
-    ├── useFoodReplacement.ts - 主业务逻辑
-    ├── useImageUpload.ts - 图片上传管理
-    └── useTemplates.ts - 模板数据管理
+│   ├── BatchCutoutButton.tsx - 批量抠图按钮
+│   └── ApplyCutoutButton.tsx - 应用抠图结果按钮
+└── hooks/ (4个Hook)
+    ├── useFoodReplacement.ts - 主业务逻辑，支持异步作业轮询
+    ├── useImageUpload.ts - 图片上传管理，支持抠图后替换
+    ├── useTemplates.ts - 模板数据管理
+    └── useBatchCutout.ts - 批量抠图状态管理（SSE流式调用Coze API）
+```
+
+**批量抠图工作流**（最新功能）：
+```
+1. 上传源图片（2-10张）
+   ↓
+2. 点击"一键批量抠图" → SSE流式调用Coze API
+   ↓
+3. 预览抠图结果（棋盘格背景显示透明PNG）
+   ├─ 满意 → 点击"一键应用"静默替换原图
+   └─ 不满意 → 鼠标悬停点击"重新抠图"单独处理
+   ↓
+4. 选择目标图片/模板
+   ↓
+5. 点击"开始智能替换" → 批量处理（串行模式）
+   ├─ 检测异步作业（jobId）→ 自动轮询等待（2秒间隔，5分钟超时）
+   └─ 检测同步结果（imageUrl）→ 直接显示
+   ↓
+6. 实时显示结果 → 成功/失败统计
 ```
 
 **设计原则**：
 - 组件职责单一，每个文件≤200行
 - 复杂状态逻辑提取为Custom Hooks
 - 批量处理支持智能重试（网络容错）
+- SSE流式处理实时反馈（批量抠图）
+- 棋盘格背景清晰显示透明PNG结果
 
 ## 关键技术实现
 
@@ -334,6 +357,13 @@ while (retryCount < maxRetries) {
 **店招/海报流程**（单阶段）：
 - 直接使用Gemini API完成食物替换+店名替换
 
+**模板智能映射**（自动填充店铺名）：
+- **配置位置**：`src/app/logo-studio/constants/templateStoreNameMap.ts`
+- **工作原理**：选择模板时，根据模板ID（如`logo-通用-22.jpg`）自动查找映射表
+- **映射格式**：`'通用-22': '盖饭先生'`（共22套模板）
+- **触发时机**：`useLogoStudioTemplates` Hook 的 `handleTemplateSelect` 方法
+- **用户体验**：自动填充"风格店铺名"输入框，用户可手动修改
+
 **重要实现细节**：
 ```typescript
 // 阶段2必须上传完整FormData以通过后端验证
@@ -442,3 +472,5 @@ formData.append('step1ResultUrl', step1ResultUrl); // 实际处理源
 6. **客户端优化**：浏览器端自动图片压缩，解决云平台限制
 7. **SSE流式响应**：Coze API实时反馈，支持中途取消，提升用户体验
 8. **水印自动排除**：提示词工程自动移除AI生成水印，保证成图质量
+9. **批量抠图工作流**：棋盘格背景预览 + 单图重抠 + 一键应用，用户体验优秀
+10. **模板智能映射**：选择模板自动填充店铺名，22套模板配置化管理
