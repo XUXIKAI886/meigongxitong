@@ -10,7 +10,9 @@ export async function GET(
   try {
     const { filename: rawFilename } = await params;
     const filename = decodeURIComponent(rawFilename);
-    const filePath = path.join(process.cwd(), '目标图片模板', filename);
+
+    // ✅ 使用安全的路径解析函数，防止路径遍历攻击
+    const filePath = resolveTemplateFile('目标图片模板', filename);
 
     // 检查文件是否存在
     if (!fs.existsSync(filePath)) {
@@ -52,10 +54,11 @@ export async function GET(
     });
 
   } catch (error) {
+    // 记录详细错误日志，但不要在响应中暴露具体原因（防止信息泄露）
     console.error('Error serving template:', error);
     return NextResponse.json(
-      { error: 'Failed to serve template' },
-      { status: 500 }
+      { error: 'Invalid template request' },
+      { status: 400 }
     );
   }
 }

@@ -12,6 +12,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Tailwind CSS 4 + Radix UI
 - 多AI模型集成（Gemini API、Doubao API、Coze API）
 
+## 快速导航
+
+**核心文件速查**：
+- 作业队列：`src/lib/job-queue.ts`
+- 环境适配：`src/lib/vercel-job-helper.ts`
+- 客户端识别：`src/lib/request-context.ts`
+- 文件管理：`src/lib/upload.ts`
+- API客户端基类：`src/lib/api/base/BaseApiClient.ts`
+- 提示词工程：`src/lib/prompt-templates.ts`
+
+**重要端点**：
+- 作业状态查询：`GET /api/jobs/[id]`
+- 调试信息：`GET /api/debug/jobs`
+- 文件清理：`GET /api/files/cleanup?maxAgeDays=7`
+
+**开发工作流**：
+```bash
+# 1. 检查端口
+netstat -ano | findstr :3000
+
+# 2. 启动开发
+npm run dev
+
+# 3. 查看作业
+curl http://localhost:3000/api/debug/jobs
+
+# 4. 清理文件
+curl http://localhost:3000/api/files/cleanup?maxAgeDays=7
+```
+
 ## 常用开发命令
 
 ### 开发与构建
@@ -123,6 +153,44 @@ GET /api/jobs/[id] → { ok, job: { status, result, error } }
 - 前端轮询必须使用 `data.job` 而非 `data.data`
 - 成功状态值为 `'succeeded'` 而非 `'completed'`
 - 使用globalThis避免Turbopack热重载时丢失作业数据
+
+**作业队列安全策略**：
+
+1. **客户端身份识别**（`src/lib/request-context.ts`）
+   - 统一解析客户端标识：`getClientIdentifier(request)`
+   - 支持多种Header：`x-forwarded-for` / `x-real-ip` / `cf-connecting-ip`
+   - Vercel和本地环境自动适配
+
+2. **Job归属管理**
+   - Job结构包含`userId`字段，记录创建者标识
+   - 并发控制Map（`userJobs`）关联客户端与作业ID
+   - 便于审计和清理
+
+3. **状态查询鉴权**（`src/app/api/jobs/[id]/route.ts`）
+   - 查询作业前校验请求者身份
+   - 身份不匹配返回404，防止枚举他人作业
+   - 保护用户生成结果隐私
+
+4. **接入规范**
+   ```typescript
+   // 新增异步API时的标准模式
+   import { getClientIdentifier } from '@/lib/request-context';
+
+   export async function POST(req: NextRequest) {
+     const clientIp = getClientIdentifier(req);
+
+     if (isVercel) {
+       // Vercel同步模式
+       const result = await processor.process(jobData);
+       return NextResponse.json({ ok: true, data: result });
+     } else {
+       // 本地异步模式，传入clientIp
+       const job = JobQueue.createJob('task-type', payload, clientIp);
+       jobRunner.runJob(job.id);
+       return NextResponse.json({ ok: true, jobId: job.id });
+     }
+   }
+   ```
 
 ### 3. API客户端架构（`src/lib/api/`）
 
@@ -494,3 +562,133 @@ formData.append('step1ResultUrl', step1ResultUrl); // 实际处理源
 10. **模板智能映射**：选择模板自动填充店铺名，23套模板配置化管理
 11. **防重复点击机制**：抠图和重新生成操作进行中时，所有相关按钮自动禁用，避免重复提交
 12. **统一UI组件**：使用Radix UI + Tailwind CSS构建的组件库，保证界面一致性
+
+## 新增业务模块开发指南
+
+当需要添加新功能模块时，请遵循以下步骤确保代码质量和架构一致性：
+
+### 1. 创建模块目录结构
+
+```bash
+src/app/{feature}/
+├── page.tsx (主页面，≤200行)
+├── types.ts (类型定义)
+├── components/ (UI组件，每个≤8文件)
+└── hooks/ (业务逻辑Hook)
+```
+
+### 2. 创建API端点
+
+```bash
+src/app/api/{feature}/
+├── route.ts (主处理逻辑，≤300行)
+└── batch/
+    └── route.ts (批量处理，如需要)
+```
+
+**API标准模板**：
+```typescript
+import { NextRequest, NextResponse } from 'next/server';
+import { createAndProcessJob } from '@/lib/vercel-job-helper';
+import { getClientIdentifier } from '@/lib/request-context';
+
+export const maxDuration = 300; // Vercel超时配置
+
+export async function POST(req: NextRequest) {
+  try {
+    // 1. 验证请求数据
+    const formData = await req.formData();
+
+    // 2. 获取客户端标识
+    const clientIp = getClientIdentifier(req);
+
+    // 3. 准备payload
+    const payload = { /* ... */ };
+
+    // 4. 双环境处理
+    const result = await createAndProcessJob(
+      'your-job-type', // 在types/index.ts中定义
+      payload,
+      yourProcessor, // 实现JobProcessor接口
+      clientIp
+    );
+
+    if (result.isSync) {
+      // Vercel同步模式
+      return NextResponse.json({ ok: true, ...result.result });
+    } else {
+      // 本地异步模式
+      return NextResponse.json({ ok: true, jobId: result.jobId });
+    }
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
+```
+
+### 3. 定义类型
+
+在 `src/types/job-payloads.ts` 中添加：
+
+```typescript
+export interface YourFeatureJobPayload {
+  // payload字段
+}
+
+export interface YourFeatureJobResult {
+  // result字段
+}
+```
+
+在 `src/types/index.ts` 中更新：
+
+```typescript
+export type JobType =
+  | 'food-replacement'
+  | 'your-feature' // 新增
+  | ...;
+
+export interface JobPayloadMap {
+  'your-feature': YourFeatureJobPayload;
+}
+
+export interface JobResultMap {
+  'your-feature': YourFeatureJobResult;
+}
+```
+
+### 4. 实现Processor
+
+```typescript
+import { JobProcessor } from '@/types';
+
+export class YourFeatureProcessor implements JobProcessor<
+  YourFeatureJobPayload,
+  YourFeatureJobResult
+> {
+  async process(job: Job<YourFeatureJobPayload, YourFeatureJobResult>) {
+    // 业务逻辑实现
+    return { /* result */ };
+  }
+}
+```
+
+### 5. 更新文档
+
+- 在 README.md 的"## 功能模块"中补充功能说明
+- 更新环境变量列表（如有新增API）
+- 添加常见问题到"## 常见问题"
+
+### 6. 遵循规范清单
+
+- ✅ 文件规模≤200行，超出则拆分
+- ✅ 目录文件数≤8个
+- ✅ 中文注释和commit信息
+- ✅ TypeScript严格模式
+- ✅ 实现双环境适配（本地/Vercel）
+- ✅ 传入clientIp用于作业归属
+- ✅ 实现智能重试机制（3次）
+- ✅ 支持部分成功（批量场景）

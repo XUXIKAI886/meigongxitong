@@ -22,6 +22,16 @@ export class JobQueue {
     // Clean up old jobs before creating new ones
     this.cleanup();
 
+    // ✅ 原子性并发检查：在创建作业前验证用户是否超过限制
+    if (userId && !this.canUserCreateJob(userId)) {
+      const stats = this.getUserJobs(userId).filter(
+        j => j.status === 'queued' || j.status === 'running'
+      );
+      throw new Error(
+        `用户 ${userId} 已达到最大并发任务数限制 (当前: ${stats.length}, 最大: 2)`
+      );
+    }
+
     const job: Job<TPayload, TResult> = {
       id: uuidv4(),
       type,

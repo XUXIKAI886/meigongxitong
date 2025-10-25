@@ -1,31 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProductRefineApiClient } from '@/lib/api-client';
-import { jobRunner, JobQueue } from '@/lib/job-queue';
+import { jobRunner, JobQueue, JobProcessor } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
 import { resolveTemplateFromUrl } from '@/lib/template-path';
 import { getClientIdentifier } from '@/lib/request-context';
 import { Job } from '@/types';
+import {
+  BackgroundFusionJobPayload,
+  BackgroundFusionJobResult,
+} from '@/types/job-payloads';
 import { readFile } from 'fs/promises';
 import fs from 'fs';
-
 
 // 强制使用 Node.js Runtime (Vercel部署必需)
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5分钟超时
 
-interface BackgroundFusionJobPayload {
-  sourceImageBuffer: Buffer;
-  targetImageBuffer: Buffer;
-  prompt: string;
-}
-
 // Job processor for background fusion
-class BackgroundFusionProcessor {
-  async process(jobData: Job) {
-    return this.processPayload(jobData.payload as BackgroundFusionJobPayload);
+class BackgroundFusionProcessor implements JobProcessor<
+  BackgroundFusionJobPayload,
+  BackgroundFusionJobResult
+> {
+  async process(
+    job: Job<BackgroundFusionJobPayload, BackgroundFusionJobResult>
+  ): Promise<BackgroundFusionJobResult> {
+    return this.processPayload(job.payload);
   }
 
-  async processPayload(payload: BackgroundFusionJobPayload) {
+  private async processPayload(
+    payload: BackgroundFusionJobPayload
+  ): Promise<BackgroundFusionJobResult> {
     const { sourceImageBuffer, targetImageBuffer, prompt } = payload;
 
     const client = new ProductRefineApiClient();
@@ -267,8 +271,23 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Background fusion error:', error);
+
+    // ✅ 区分并发限制错误和其他错误
+    if (error instanceof Error && error.message.includes('已达到最大并发任务数限制')) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: error.message,
+        },
+        { status: 429 } // Too Many Requests
+      );
+    }
+
     return NextResponse.json(
-      { error: '背景融合失败' },
+      {
+        ok: false,
+        error: '背景融合失败',
+      },
       { status: 500 }
     );
   }

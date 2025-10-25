@@ -28,11 +28,32 @@ export async function GET(
     
     const job = JobQueue.getJob(id);
 
-    if (!job || (job.userId && job.userId !== requesterId)) {
+    // ✅ 改进的鉴权逻辑：区分"不存在"和"无权访问"
+    if (!job) {
+      // Job真的不存在
       return NextResponse.json(
         {
           ok: false,
           error: 'Job not found',
+          requestId,
+          durationMs: Date.now() - startTime,
+        } as ApiResponse,
+        { status: 404 }
+      );
+    }
+
+    if (job.userId && job.userId !== requesterId) {
+      // Job存在但无权访问，记录审计日志并返回404（防止枚举）
+      console.warn(
+        `[Security] Unauthorized job access attempt:`,
+        `Job ${id} (owner: ${job.userId}) accessed by ${requesterId}`,
+        `from ${request.headers.get('user-agent') || 'unknown'}`
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Job not found', // 不暴露是否存在
           requestId,
           durationMs: Date.now() - startTime,
         } as ApiResponse,
