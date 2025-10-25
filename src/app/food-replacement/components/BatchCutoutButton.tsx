@@ -33,7 +33,7 @@ export default function BatchCutoutButton({
     <div className="space-y-3">
       <Button
         onClick={onStartCutout}
-        disabled={!canStartCutout}
+        disabled={true}
         variant="secondary"
         size="lg"
         className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 disabled:from-gray-300 disabled:to-gray-400 transition-all duration-300"
