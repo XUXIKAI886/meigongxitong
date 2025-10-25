@@ -27,7 +27,7 @@ class BackgroundFusionProcessor implements JobProcessor<
     return this.processPayload(job.payload);
   }
 
-  private async processPayload(
+  async processPayload(
     payload: BackgroundFusionJobPayload
   ): Promise<BackgroundFusionJobResult> {
     const { sourceImageBuffer, targetImageBuffer, prompt } = payload;
