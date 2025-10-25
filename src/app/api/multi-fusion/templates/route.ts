@@ -20,17 +20,24 @@ export async function GET(request: NextRequest) {
     const files = await readdir(templatesDir);
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
 
-    const templates = files
-      .filter(file => {
-        const ext = path.extname(file).toLowerCase();
-        return imageExtensions.includes(ext);
-      })
-      .map((file, index) => ({
-        id: index + 1,
-        name: path.basename(file, path.extname(file)),
-        filename: file,
-        url: `/api/background-fusion/templates/${encodeURIComponent(file)}`  // 使用背景融合工具的API路径
-      }));
+    const imageFiles = files.filter(file => {
+      const ext = path.extname(file).toLowerCase();
+      return imageExtensions.includes(ext);
+    });
+
+    // 自然排序（数值排序）：1.jpg, 2.jpg, ..., 10.jpg, 11.jpg
+    imageFiles.sort((a, b) => {
+      const numA = parseInt(path.parse(a).name) || 0;
+      const numB = parseInt(path.parse(b).name) || 0;
+      return numA - numB;
+    });
+
+    const templates = imageFiles.map((file, index) => ({
+      id: index + 1,
+      name: path.basename(file, path.extname(file)),
+      filename: file,
+      url: `/api/background-fusion/templates/${encodeURIComponent(file)}`  // 使用背景融合工具的API路径
+    }));
 
     return NextResponse.json({
       success: true,

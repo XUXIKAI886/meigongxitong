@@ -21,6 +21,13 @@ export async function GET() {
       return imageExtensions.includes(ext);
     });
 
+    // 自然排序（数值排序）：1.jpg, 2.jpg, ..., 10.jpg, 11.jpg
+    imageFiles.sort((a, b) => {
+      const numA = parseInt(path.parse(a).name) || 0;
+      const numB = parseInt(path.parse(b).name) || 0;
+      return numA - numB;
+    });
+
     // 生成模板数据
     const templates = imageFiles.map(file => ({
       name: path.parse(file).name,
