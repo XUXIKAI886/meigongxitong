@@ -60,7 +60,8 @@ export default function FoodReplacementPage() {
     batchSourceDropzone,
     batchTargetDropzone,
     removeBatchSourceImage,
-    replaceBatchSourceImage,  // 新增：用于抠图后替换图片
+    replaceBatchSourceImage,  // 批量模式：用于抠图后替换图片
+    replaceSourceImage,       // 单张模式：用于抠图后替换图片
     setTemplatePreview,
     clearPreviews,
     setSourceImages,
@@ -132,31 +133,35 @@ export default function FoodReplacementPage() {
     setShowTemplateSelector(show);
   };
 
-  // 新增：处理批量抠图
+  // 新增：处理批量抠图（支持单张和批量模式）
   const handleBatchCutout = useCallback(async () => {
-    if (sourceImages.length === 0) {
+    // 单张模式：检查sourceImage
+    // 批量模式：检查sourceImages数组
+    const imagesToCutout = isBatchMode ? sourceImages : (sourceImage ? [sourceImage] : []);
+
+    if (imagesToCutout.length === 0) {
       alert('请先上传源图片');
       return;
     }
 
-    console.log('[handleBatchCutout] 开始批量抠图');
+    console.log(`[handleBatchCutout] 开始${isBatchMode ? '批量' : '单张'}抠图`);
 
     // 不再传递回调，直接调用batchCutout
-    await batchCutout.batchCutout(sourceImages);
+    await batchCutout.batchCutout(imagesToCutout);
 
     // 显示完成提示
     const { successCount, failedCount } = batchCutout;
     alert(
-      `批量抠图完成！\n\n` +
-      `✓ 成功: ${successCount}/${sourceImages.length}\n` +
+      `${isBatchMode ? '批量' : ''}抠图完成！\n\n` +
+      `✓ 成功: ${successCount}/${imagesToCutout.length}\n` +
       (failedCount > 0 ? `✗ 失败: ${failedCount}` : '') +
       `\n\n请查看下方的抠图结果预览，确认无误后点击"一键应用"按钮。`
     );
 
-    console.log('[handleBatchCutout] 批量抠图完成');
-  }, [sourceImages, batchCutout]);
+    console.log(`[handleBatchCutout] ${isBatchMode ? '批量' : '单张'}抠图完成`);
+  }, [isBatchMode, sourceImage, sourceImages, batchCutout]);
 
-  // 新增：应用抠图结果
+  // 新增：应用抠图结果（支持单张和批量模式）
   const handleApplyCutout = useCallback(() => {
     const { cutoutResults } = batchCutout;
     if (cutoutResults.length === 0) {
@@ -164,43 +169,58 @@ export default function FoodReplacementPage() {
       return;
     }
 
-    console.log('[handleApplyCutout] 开始应用抠图结果');
+    console.log(`[handleApplyCutout] 开始应用${isBatchMode ? '批量' : '单张'}抠图结果`);
 
-    // 替换所有源图片
-    cutoutResults.forEach((cutoutFile, index) => {
-      if (cutoutFile) {
-        replaceBatchSourceImage(index, cutoutFile);
-        console.log(`✓ 第${index + 1}张已应用:`, cutoutFile.name);
+    if (isBatchMode) {
+      // 批量模式：替换所有源图片
+      cutoutResults.forEach((cutoutFile, index) => {
+        if (cutoutFile) {
+          replaceBatchSourceImage(index, cutoutFile);
+          console.log(`✓ 第${index + 1}张已应用:`, cutoutFile.name);
+        }
+      });
+    } else {
+      // 单张模式：替换源图片
+      if (cutoutResults[0]) {
+        replaceSourceImage(cutoutResults[0]);
+        console.log('✓ 单张图片已应用:', cutoutResults[0].name);
       }
-    });
+    }
 
     // 清空抠图结果和预览
     batchCutout.clearCutoutResults();
     setCutoutResultPreviews([]);
 
-    console.log('[handleApplyCutout] 应用完成');
-  }, [batchCutout, replaceBatchSourceImage]);
+    console.log(`[handleApplyCutout] ${isBatchMode ? '批量' : '单张'}应用完成`);
+  }, [isBatchMode, batchCutout, replaceBatchSourceImage, replaceSourceImage]);
 
-  // 新增：重新抠图单张图片
+  // 新增：重新抠图单张图片（支持单张和批量模式）
   const handleRecutImage = useCallback(async (index: number) => {
-    if (index < 0 || index >= sourceImages.length) {
+    const imageToRecut = isBatchMode ? sourceImages[index] : sourceImage;
+
+    if (!imageToRecut) {
+      console.error('[handleRecutImage] 没有可重新抠图的图片');
+      return;
+    }
+
+    if (isBatchMode && (index < 0 || index >= sourceImages.length)) {
       console.error('[handleRecutImage] 索引越界:', index);
       return;
     }
 
-    console.log(`[handleRecutImage] 开始重新抠图第 ${index + 1} 张`);
+    console.log(`[handleRecutImage] 开始重新抠图${isBatchMode ? `第 ${index + 1} 张` : ''}`);
     setRecutingIndex(index);
 
     try {
-      await batchCutout.recutSingleImage(index, sourceImages[index]);
-      console.log(`[handleRecutImage] 第 ${index + 1} 张重新抠图成功`);
+      await batchCutout.recutSingleImage(index, imageToRecut);
+      console.log(`[handleRecutImage] ${isBatchMode ? `第 ${index + 1} 张` : ''}重新抠图成功`);
     } catch (error) {
-      console.error(`[handleRecutImage] 第 ${index + 1} 张重新抠图失败:`, error);
+      console.error(`[handleRecutImage] ${isBatchMode ? `第 ${index + 1} 张` : ''}重新抠图失败:`, error);
       alert(`重新抠图失败: ${error instanceof Error ? error.message : '未知错误'}`);
     } finally {
       setRecutingIndex(-1);
     }
-  }, [sourceImages, batchCutout]);
+  }, [isBatchMode, sourceImage, sourceImages, batchCutout]);
 
   // 开始处理
   const handleStartProcessing = async () => {

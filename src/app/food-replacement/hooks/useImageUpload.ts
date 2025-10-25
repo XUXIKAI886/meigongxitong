@@ -97,6 +97,22 @@ export function useImageUpload() {
     reader.readAsDataURL(newFile);
   }, []);
 
+  // 替换单张模式的源图片（用于抠图后替换）
+  const replaceSourceImage = useCallback((newFile: File) => {
+    setSourceImage(newFile);
+
+    // 更新预览
+    const reader = new FileReader();
+    reader.onload = () => {
+      // 释放旧预览URL（如果是blob URL）
+      if (sourceImagePreview && sourceImagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(sourceImagePreview);
+      }
+      setSourceImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(newFile);
+  }, [sourceImagePreview]);
+
   // 设置风格预览
   const setTemplatePreview = useCallback((templateUrl: string, isBatchMode: boolean) => {
     if (isBatchMode) {
@@ -158,7 +174,8 @@ export function useImageUpload() {
 
     // 操作
     removeBatchSourceImage,
-    replaceBatchSourceImage,  // 新增：替换批量图片
+    replaceBatchSourceImage,  // 替换批量图片
+    replaceSourceImage,       // 替换单张图片
     setTemplatePreview,
     clearPreviews,
     setSourceImages,
