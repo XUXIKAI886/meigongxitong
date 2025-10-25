@@ -3,6 +3,7 @@ import { ProductRefineApiClient } from '@/lib/api-client';
 import { jobRunner, JobQueue } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
 import { resolveTemplateFromUrl } from '@/lib/template-path';
+import { getClientIdentifier } from '@/lib/request-context';
 import { Job } from '@/types';
 import { readFile } from 'fs/promises';
 import fs from 'fs';
@@ -153,6 +154,7 @@ jobRunner.registerProcessor('batch-background-fusion', new BatchBackgroundFusion
 export async function POST(request: NextRequest) {
   try {
     const userAgent = request.headers.get('user-agent') || 'unknown';
+    const clientIp = getClientIdentifier(request);
     console.log('Batch background fusion request from:', userAgent);
 
     const formData = await request.formData();
@@ -337,7 +339,7 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // 本地模式: 异步作业队列
-      const job = JobQueue.createJob('batch-background-fusion', payload);
+      const job = JobQueue.createJob('batch-background-fusion', payload, clientIp);
 
       console.log('Created batch fusion job:', job.id);
       jobRunner.runJob(job.id);

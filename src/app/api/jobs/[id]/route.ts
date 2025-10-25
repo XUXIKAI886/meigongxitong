@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { JobQueue } from '@/lib/job-queue';
+import { getClientIdentifier } from '@/lib/request-context';
 import { ApiResponse } from '@/types';
 
 export async function GET(
@@ -11,6 +12,7 @@ export async function GET(
 
   try {
     const { id } = await params;
+    const requesterId = getClientIdentifier(request);
     
     if (!id) {
       return NextResponse.json(
@@ -26,7 +28,7 @@ export async function GET(
     
     const job = JobQueue.getJob(id);
 
-    if (!job) {
+    if (!job || (job.userId && job.userId !== requesterId)) {
       return NextResponse.json(
         {
           ok: false,

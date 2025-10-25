@@ -20,6 +20,7 @@ export interface Job<TPayload = unknown, TResult = unknown> {
   id: string;
   type: JobType;
   status: JobStatus;
+  userId?: string;
   payload: TPayload;
   result?: TResult;
   progress?: number;

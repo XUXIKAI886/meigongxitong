@@ -26,6 +26,7 @@ export class JobQueue {
       id: uuidv4(),
       type,
       status: 'queued',
+      userId,
       payload,
       progress: 0,
       createdAt: new Date(),

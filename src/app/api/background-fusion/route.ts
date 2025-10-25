@@ -3,6 +3,7 @@ import { ProductRefineApiClient } from '@/lib/api-client';
 import { jobRunner, JobQueue } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
 import { resolveTemplateFromUrl } from '@/lib/template-path';
+import { getClientIdentifier } from '@/lib/request-context';
 import { Job } from '@/types';
 import { readFile } from 'fs/promises';
 import fs from 'fs';
@@ -84,6 +85,7 @@ jobRunner.registerProcessor('background-fusion', new BackgroundFusionProcessor()
 export async function POST(request: NextRequest) {
   try {
     const userAgent = request.headers.get('user-agent') || 'unknown';
+    const clientIp = getClientIdentifier(request);
     console.log('Background fusion request from:', userAgent);
 
     const formData = await request.formData();
@@ -253,7 +255,7 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // 本地模式: 异步作业队列
-      const job = JobQueue.createJob('background-fusion', payload);
+      const job = JobQueue.createJob('background-fusion', payload, clientIp);
 
       jobRunner.runJob(job.id);
 

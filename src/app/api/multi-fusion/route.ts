@@ -3,6 +3,7 @@ import { ProductRefineApiClient } from '@/lib/api-client';
 import { jobRunner, JobQueue } from '@/lib/job-queue';
 import { FileManager } from '@/lib/upload';
 import { config } from '@/lib/config';
+import { getClientIdentifier } from '@/lib/request-context';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import path from 'path';
@@ -119,6 +120,7 @@ jobRunner.registerProcessor('multi-fusion', new MultiFusionProcessor());
 
 export async function POST(request: NextRequest) {
   try {
+    const clientIp = getClientIdentifier(request);
     const formData = await request.formData();
     
     // 获取所有源图片
@@ -246,7 +248,7 @@ Generate a high-quality restaurant-style image where all ${sourceImages.length} 
       });
     } else {
       // 本地模式: 同步等待作业完成 (原有逻辑)
-      const job = JobQueue.createJob('multi-fusion', payload, 'anonymous');
+      const job = JobQueue.createJob('multi-fusion', payload, clientIp);
 
       jobRunner.runJob(job.id);
 
