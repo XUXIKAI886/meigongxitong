@@ -15,6 +15,66 @@ import TargetImageUpload from './components/TargetImageUpload';
 import ProcessingStatus from './components/ProcessingStatus';
 import ResultDisplay from './components/ResultDisplay';
 
+/**
+ * 压缩图片文件（解决Vercel 4.5MB请求体限制）
+ * @param file 原始图片文件
+ * @param maxWidth 最大宽度（默认1920）
+ * @param maxHeight 最大高度（默认1920）
+ * @param quality 压缩质量（0-1，默认0.85）
+ * @returns 压缩后的Blob
+ */
+async function compressImage(
+  file: File,
+  maxWidth = 1920,
+  maxHeight = 1920,
+  quality = 0.85
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+
+        // 计算缩放比例
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width *= ratio;
+          height *= ratio;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('无法获取Canvas上下文'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('图片压缩失败'));
+            }
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = () => reject(new Error('图片加载失败'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('文件读取失败'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function FoodReplacementPage() {
   const {
     isBatchMode,
@@ -262,9 +322,22 @@ export default function FoodReplacementPage() {
         throw new Error('无法找到目标图片或模板');
       }
 
-      // 3. 创建FormData
+      // 3. 压缩源图片（解决Vercel 4.5MB限制）
+      let imageToUpload: File | Blob = sourceImageFile;
+      try {
+        console.log(`开始压缩图片，原始大小: ${(sourceImageFile.size / 1024 / 1024).toFixed(2)}MB`);
+        const compressedBlob = await compressImage(sourceImageFile);
+        console.log(`压缩完成，压缩后大小: ${(compressedBlob.size / 1024 / 1024).toFixed(2)}MB`);
+        imageToUpload = new File([compressedBlob], sourceImageFile.name, { type: 'image/jpeg' });
+      } catch (compressError) {
+        console.warn(`图片压缩失败，使用原图:`, compressError);
+        // 压缩失败时使用原图
+        imageToUpload = sourceImageFile;
+      }
+
+      // 4. 创建FormData
       const formData = new FormData();
-      formData.append('sourceImage', sourceImageFile);
+      formData.append('sourceImage', imageToUpload);
 
       if (selectedTemplate) {
         formData.append('targetImageUrl', selectedTemplate.url);
@@ -392,9 +465,22 @@ export default function FoodReplacementPage() {
             console.log(`处理第 ${i + 1}/${sourceImages.length} 张图片: ${sourceImages[i].name}`);
             console.log('sourceImage类型:', sourceImages[i] instanceof File, 'size:', sourceImages[i].size, 'type:', sourceImages[i].type);
 
+            // 压缩图片（解决Vercel 4.5MB限制）
+            let imageToUpload: File | Blob = sourceImages[i];
+            try {
+              console.log(`开始压缩第 ${i + 1} 张图片，原始大小: ${(sourceImages[i].size / 1024 / 1024).toFixed(2)}MB`);
+              const compressedBlob = await compressImage(sourceImages[i]);
+              console.log(`压缩完成，压缩后大小: ${(compressedBlob.size / 1024 / 1024).toFixed(2)}MB`);
+              imageToUpload = new File([compressedBlob], sourceImages[i].name, { type: 'image/jpeg' });
+            } catch (compressError) {
+              console.warn(`图片压缩失败，使用原图:`, compressError);
+              // 压缩失败时使用原图
+              imageToUpload = sourceImages[i];
+            }
+
             // 为每张图片创建单独的请求
             const singleFormData = new FormData();
-            singleFormData.append('sourceImage', sourceImages[i]);
+            singleFormData.append('sourceImage', imageToUpload);
 
             if (selectedTemplate) {
               singleFormData.append('targetImageUrl', selectedTemplate.url);
@@ -533,7 +619,20 @@ export default function FoodReplacementPage() {
       } else {
         // 单张模式
         if (sourceImage) {
-          formData.append('sourceImage', sourceImage);
+          // 压缩图片（解决Vercel 4.5MB限制）
+          let imageToUpload: File | Blob = sourceImage;
+          try {
+            console.log(`开始压缩图片，原始大小: ${(sourceImage.size / 1024 / 1024).toFixed(2)}MB`);
+            const compressedBlob = await compressImage(sourceImage);
+            console.log(`压缩完成，压缩后大小: ${(compressedBlob.size / 1024 / 1024).toFixed(2)}MB`);
+            imageToUpload = new File([compressedBlob], sourceImage.name, { type: 'image/jpeg' });
+          } catch (compressError) {
+            console.warn(`图片压缩失败，使用原图:`, compressError);
+            // 压缩失败时使用原图
+            imageToUpload = sourceImage;
+          }
+
+          formData.append('sourceImage', imageToUpload);
         }
 
         if (selectedTemplate) {
