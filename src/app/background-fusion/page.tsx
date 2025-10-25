@@ -118,8 +118,11 @@ export default function BackgroundFusionPage() {
   // 正在重新抠图的图片索引（-1表示无）
   const [recutingIndex, setRecutingIndex] = useState<number>(-1);
 
-  // 新增：任务队列机制（确保重新抠图操作按顺序执行）
-  type TaskType = 'recut';
+  // 正在重新生成的结果索引（-1表示无）
+  const [regeneratingIndex, setRegeneratingIndex] = useState<number>(-1);
+
+  // 新增：任务队列机制（确保重新抠图和重新生成操作按顺序执行）
+  type TaskType = 'recut' | 'regenerate';
   interface Task {
     type: TaskType;
     index: number;
@@ -493,6 +496,108 @@ export default function BackgroundFusionPage() {
       }
     });
   }, [isBatchMode, sourceImage, sourceImages, batchCutout, addTaskToQueue]);
+
+  // 重新生成单张图片 - 改造为队列模式
+  const handleRegenerateImage = useCallback(async (result: any, resultIndex: number) => {
+    // 将任务加入队列
+    addTaskToQueue('regenerate', resultIndex, async () => {
+      console.log(`[handleRegenerateImage] 开始重新生成第 ${resultIndex + 1} 张图片`);
+      console.log('结果详情:', result);
+
+      setRegeneratingIndex(resultIndex);
+
+      try {
+        // 1. 找到对应的源图片
+        let sourceImageFile: File | null = null;
+
+        if (result.sourceImageIndex !== undefined) {
+          // 批量模式：根据sourceImageIndex找到对应的源图片
+          if (isBatchMode && sourceImages[result.sourceImageIndex]) {
+            sourceImageFile = sourceImages[result.sourceImageIndex];
+          } else if (!isBatchMode && sourceImage) {
+            // 单张模式
+            sourceImageFile = sourceImage;
+          }
+        } else {
+          // 如果没有sourceImageIndex，使用当前的源图片
+          sourceImageFile = isBatchMode ? sourceImages[0] : sourceImage;
+        }
+
+        if (!sourceImageFile) {
+          throw new Error('无法找到对应的源图片');
+        }
+
+        console.log('找到源图片:', sourceImageFile.name);
+
+        // 2. 获取当前的目标图片
+        const targetImageFile = isBatchMode ? batchTargetImage : targetImage;
+        if (!targetImageFile && !selectedTemplate) {
+          throw new Error('无法找到目标图片或模板');
+        }
+
+        // 3. 压缩源图片（解决Vercel 4.5MB限制）
+        let imageToUpload: File | Blob = sourceImageFile;
+        try {
+          console.log(`开始压缩图片，原始大小: ${(sourceImageFile.size / 1024 / 1024).toFixed(2)}MB`);
+          const compressedBlob = await compressImage(sourceImageFile);
+          console.log(`压缩完成，压缩后大小: ${(compressedBlob.size / 1024 / 1024).toFixed(2)}MB`);
+          imageToUpload = new File([compressedBlob], sourceImageFile.name, { type: 'image/jpeg' });
+        } catch (compressError) {
+          console.warn(`图片压缩失败，使用原图:`, compressError);
+          imageToUpload = sourceImageFile;
+        }
+
+        // 4. 创建FormData
+        const formData = new FormData();
+        formData.append('sourceImage', imageToUpload);
+
+        if (selectedTemplate) {
+          formData.append('targetImageUrl', selectedTemplate.url);
+          console.log('使用模板:', selectedTemplate.name);
+        } else if (targetImageFile) {
+          formData.append('targetImage', targetImageFile);
+          console.log('使用上传的目标图片');
+        }
+
+        // 5. 调用API
+        console.log('开始调用API重新生成...');
+        const response = await fetch('/api/background-fusion', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await response.json();
+        console.log('API响应:', data);
+
+        if (data.ok && data.data && data.data.imageUrl) {
+          // Vercel同步模式: 直接更新结果
+          console.log('检测到同步响应，更新结果');
+          const updatedResult = {
+            ...result,
+            imageUrl: data.data.imageUrl,
+            width: data.data.width,
+            height: data.data.height,
+          };
+
+          // 更新batchResults数组
+          setBatchResults(prevResults => {
+            const newResults = [...prevResults];
+            newResults[resultIndex] = updatedResult;
+            return newResults;
+          });
+
+          console.log('✓ 重新生成成功');
+        } else {
+          throw new Error(data.error || '处理失败');
+        }
+      } catch (error) {
+        console.error('[handleRegenerateImage] 重新生成失败:', error);
+        alert(`重新生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      } finally {
+        setRegeneratingIndex(-1);
+      }
+    });
+  }, [isBatchMode, sourceImage, sourceImages, batchTargetImage, targetImage, selectedTemplate, addTaskToQueue]);
 
   // 轮询任务状态
   const pollJobStatus = async (jobId: string, fileNames?: string[]) => {
@@ -914,6 +1019,8 @@ export default function BackgroundFusionPage() {
                 console.log(`批量单张下载 - 第${index + 1}张，使用文件名:`, filename);
                 downloadImage(imageUrl, filename);
               }}
+              onRegenerate={handleRegenerateImage}
+              regeneratingIndex={regeneratingIndex}
             />
           </div>
         </div>

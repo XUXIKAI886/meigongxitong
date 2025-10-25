@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Trash2, ImageIcon } from 'lucide-react';
+import { Download, Trash2, ImageIcon, RefreshCwIcon } from 'lucide-react';
 
 interface BatchResult {
   sourceImageIndex: number;
@@ -22,6 +22,9 @@ interface ResultDisplayProps {
   onDownloadAll: () => void;
   onClearHistorical: () => void;
   onDownloadBatchImage: (imageUrl: string, filename: string, index: number) => void;
+  // 重新生成功能
+  onRegenerate?: (result: BatchResult, index: number) => void;
+  regeneratingIndex?: number;
 }
 
 export default function ResultDisplay({
@@ -33,6 +36,8 @@ export default function ResultDisplay({
   onDownloadAll,
   onClearHistorical,
   onDownloadBatchImage,
+  onRegenerate,
+  regeneratingIndex = -1,
 }: ResultDisplayProps) {
   // 单图模式
   if (!isBatchMode && result) {
@@ -99,21 +104,19 @@ export default function ResultDisplay({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {allResults.map((item, index) => {
-              const aspectRatio =
-                item.width && item.height ? `${item.width} / ${item.height}` : '4 / 3';
-
               if (item.status !== 'success') {
                 return (
-                  <div
-                    key={index}
-                    className="w-full rounded border border-red-300 bg-red-50 flex items-center justify-center"
-                    style={{ aspectRatio }}
-                  >
-                    <div className="text-center px-2">
-                      <p className="text-red-600 text-sm font-medium">处理失败</p>
-                      <p className="text-red-500 text-xs mt-1">源图片 {item.sourceImageIndex + 1}</p>
+                  <div key={index} className="relative group">
+                    <div className="aspect-[4/3] bg-red-50 rounded-lg border-2 border-red-300 flex items-center justify-center">
+                      <div className="text-center px-4">
+                        <p className="text-red-600 text-base font-medium">处理失败</p>
+                        <p className="text-red-500 text-sm mt-2">源图片 {item.sourceImageIndex + 1}</p>
+                        {item.error && (
+                          <p className="text-red-400 text-xs mt-1">{item.error}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -121,34 +124,70 @@ export default function ResultDisplay({
 
               return (
                 <div key={index} className="relative group">
-                  <div className="relative w-full bg-white border rounded overflow-hidden group-hover:border-orange-400 transition-colors">
-                    <div className="relative w-full" style={{ aspectRatio }}>
-                      <img
-                        src={item.imageUrl}
-                        alt={`融合结果 ${index + 1}`}
-                        className="absolute inset-0 w-full h-full object-contain bg-gray-100"
-                      />
-                    </div>
-                    <div className="absolute inset-0 rounded transition-all duration-200 flex items-center justify-center bg-transparent group-hover:bg-black/40">
-                      <button
-                        onClick={() => {
-                          const filename = item.sourceFileName || `background-fusion-${index + 1}.jpg`;
-                          onDownloadBatchImage(item.imageUrl!, filename, index);
-                        }}
-                        className="bg-green-500 text-white px-3 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        下载
-                      </button>
-                    </div>
+                  <div className="aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden">
+                    <img
+                      src={item.imageUrl}
+                      alt={`融合结果 ${index + 1}`}
+                      className="w-full h-full object-cover transition-transform duration-300"
+                      onError={(e) => {
+                        console.error('图片加载失败:', item.imageUrl);
+                        e.currentTarget.style.display = 'none';
+                      }}
+                      onLoad={() => {
+                        console.log('图片加载成功:', item.imageUrl);
+                      }}
+                    />
                   </div>
-                  <p className="text-xs text-gray-600 mt-1 flex items-center justify-between">
-                    <span>源图片 {item.sourceImageIndex + 1}</span>
-                    {item.width && item.height && (
-                      <span className="text-[10px] text-gray-400">
-                        {item.width}×{item.height}
-                      </span>
-                    )}
-                  </p>
+
+                  {/* 重新生成中的加载遮罩层 */}
+                  {regeneratingIndex === index && (
+                    <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center rounded-lg">
+                      <RefreshCwIcon className="w-12 h-12 text-blue-600 animate-spin mb-2" />
+                      <p className="text-sm font-medium text-gray-700">重新生成中...</p>
+                    </div>
+                  )}
+
+                  {/* 悬停时显示按钮 - 重新生成和下载 - 仅在非生成状态时显示 */}
+                  {regeneratingIndex !== index && (
+                    <div className="absolute inset-0 bg-transparent group-hover:bg-black group-hover:bg-opacity-30 transition-all duration-300 rounded-lg flex items-center justify-center">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex gap-3">
+                        {/* 重新生成按钮 */}
+                        {onRegenerate && (
+                          <button
+                            onClick={() => onRegenerate(item, index)}
+                            className="bg-white hover:bg-gray-100 text-gray-800 px-4 py-2 rounded shadow-lg font-medium flex items-center"
+                          >
+                            <RefreshCwIcon className="h-4 w-4 mr-2" />
+                            重新生成
+                          </button>
+                        )}
+
+                        {/* 下载按钮 */}
+                        <button
+                          onClick={() => {
+                            const filename = item.sourceFileName || `background-fusion-${index + 1}.jpg`;
+                            onDownloadBatchImage(item.imageUrl!, filename, index);
+                          }}
+                          className="bg-white hover:bg-gray-100 text-gray-800 px-4 py-2 rounded shadow-lg font-medium flex items-center"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          下载图片
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 图片序号 */}
+                  <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded shadow-sm">
+                    {index + 1}
+                  </div>
+
+                  {/* 图片尺寸信息 */}
+                  {item.width && item.height && (
+                    <div className="absolute bottom-2 right-2 bg-green-600 text-white text-xs px-2 py-1 rounded shadow-sm">
+                      {item.width}×{item.height}
+                    </div>
+                  )}
                 </div>
               );
             })}
